@@ -18,29 +18,30 @@
 ## Phases
 
 ### Phase 1 — Project Setup & Foundation
-- [ ] Create GitHub repo `Darin0314/ghl_addon`
-- [ ] Scaffold React 19 + Vite + Tailwind CSS (`frontend/`)
-- [ ] Create PHP 8.3 API skeleton (`api/`) with `.htaccess` routing
-- [ ] MariaDB database `ghl_addon` + user `ghl_user`
-- [ ] Core schema: `users`, `contacts`, `pipelines`, `pipeline_stages`, `deals`
-- [ ] nginx config `/etc/nginx/sites-available/ghl_addon.conf` → port 8099
-- [ ] `.env` file with DB creds + base URL
-- [ ] `composer.json` for PHP autoload
-- [ ] README.md
-**Status**: NOT STARTED
+- [x] Create GitHub repo `Darin0314/ghl_addon`
+- [x] Scaffold React 19 + Vite + Tailwind CSS (`frontend/`)
+- [x] Create PHP 8.3 API skeleton (`api/`) with auto-dispatch routing
+- [x] MariaDB database `ghl_addon` + user `ghl_user`
+- [x] Core schema: `users`, `contacts`, `pipelines`, `pipeline_stages`, `deals` (with seed data)
+- [x] nginx config `/etc/nginx/sites-available/ghl_addon.conf` → **port 8101**
+- [x] `.env` file with DB creds + base URL
+- [x] `composer.json` for PHP autoload
+- [x] API health check verified: `http://localhost:8101/api/health`
+**Status**: COMPLETE
 
 ---
 
 ### Phase 2 — Dark Sidebar + Dashboard Layout
-- [ ] React Router v6 navigation shell
-- [ ] Dark navy sidebar: Dashboard, Contacts, Opportunities, Calendar, Email, Automation, Funnels, Settings
-- [ ] Top navbar: search, notifications, user avatar
-- [ ] Dashboard page: KPI cards (Total Contacts, Revenue, Open Deals, Appointments Today)
-- [ ] Recent activity feed component
-- [ ] Pipeline summary chart (Recharts)
-- [ ] Mock data layer for dev (JSON fixtures)
-- [ ] Shared context/state (React Context or Zustand)
-**Status**: NOT STARTED
+- [x] React Router v6 navigation shell
+- [x] Dark navy sidebar: Dashboard, Contacts, Opportunities, Calendar, Email, Automation, Funnels, Settings
+- [x] Top navbar: search, notifications, user avatar
+- [x] Dashboard page: KPI cards (Total Contacts, Revenue, Open Deals, Appointments Today)
+- [x] Recent activity feed component
+- [x] Pipeline summary chart (Recharts bar chart with stage legend)
+- [x] Mock data layer (src/data/mockData.js)
+- [x] Zustand store (src/store/useAppStore.js)
+- [x] Placeholder pages for all 7 remaining routes
+**Status**: COMPLETE
 
 ---
 
@@ -152,7 +153,8 @@
 ---
 
 ## Next Up
-**Phase 1** — Project Setup & Foundation
+**Phase 3** — CRM Contacts Page
 
 ## Completed
-_(none yet)_
+- Phase 1 — Project Setup & Foundation (port 8101, DB ghl_addon, API health verified)
+- Phase 2 — Dark Sidebar + Dashboard Layout (React Router, KPI cards, Recharts, Zustand, mock data)
