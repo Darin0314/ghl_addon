@@ -46,13 +46,25 @@
 ---
 
 ### Phase 3 — CRM Contacts Page
-- [ ] MariaDB: `contacts` table (name, email, phone, source, tags, pipeline_stage_id, created_at)
-- [ ] PHP API: GET/POST/PUT/DELETE `/api/contacts`
-- [ ] Contacts table (searchable, filterable by tag/stage)
-- [ ] Add Contact modal (name, email, phone, source, tags)
-- [ ] Bulk actions: tag, delete, assign to pipeline
-- [ ] Contact detail slide-in panel
-- [ ] Tag filter chips at top
+- [x] MariaDB: `contacts` table used (seeded from Phase 1 schema)
+- [x] PHP API: GET/POST/PUT/DELETE `/api/contacts` + bulk actions (tag/stage/delete)
+- [x] `pipeline_stages` API endpoint
+- [x] Contacts table (searchable, filterable by tag + stage)
+- [x] Add Contact modal (name, email, phone, source, tags, stage, notes)
+- [x] Bulk actions bar: tag, assign stage, delete selected
+- [x] Contact detail slide-in panel with quick Text + Email actions
+- [x] Tag filter chips at top
+**Status**: COMPLETE
+
+### Phase 3.5 — SMS Integration (RingCentral + Twilio)
+- [ ] MariaDB: `sms_settings` table (provider, account_sid, auth_token, from_number, per-account)
+- [ ] PHP API: `/api/sms/send` endpoint (provider-agnostic)
+- [ ] RingCentral adapter (OAuth2 + SMS API)
+- [ ] Twilio adapter (REST API)
+- [ ] Settings tab: SMS provider config (choose RingCentral or Twilio, enter creds)
+- [ ] Contact detail panel: "Send SMS" button opens compose modal
+- [ ] SMS history log per contact (`sms_log` table)
+- [ ] Automation actions: "Send SMS" node uses this integration
 **Status**: NOT STARTED
 
 ---
@@ -153,8 +165,9 @@
 ---
 
 ## Next Up
-**Phase 3** — CRM Contacts Page
+**Phase 3.5** — SMS Integration (RingCentral + Twilio)
 
 ## Completed
 - Phase 1 — Project Setup & Foundation (port 8101, DB ghl_addon, API health verified)
 - Phase 2 — Dark Sidebar + Dashboard Layout (React Router, KPI cards, Recharts, Zustand, mock data)
+- Phase 3 — CRM Contacts (full table, add modal, bulk actions, slide-in detail panel, tag filters)
