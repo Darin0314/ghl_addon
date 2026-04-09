@@ -1,0 +1,16 @@
+{
+    "name": "darin0314/ghl_addon",
+    "description": "GoHighLevel-style CRM Add-On",
+    "type": "project",
+    "require": {
+        "php": ">=8.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "GHL\\": "api/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}
