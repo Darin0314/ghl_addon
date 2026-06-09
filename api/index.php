@@ -62,8 +62,78 @@ if ($resource === 'health' && $method === 'GET') {
     exit;
 }
 
+// ─── LinkedIn OAuth callback is public (LinkedIn redirects here, no session) ────
+if ($resource === 'linkedin' && $id === 'callback' && $method === 'GET') {
+    require_once __DIR__ . '/controllers/linkedin.php';
+    $li = new LinkedInIntegration(Database::getConnection());
+    $code  = $_GET['code']  ?? '';
+    $state = $_GET['state'] ?? '';
+    $expectedState = $_SESSION['linkedin_oauth_state'] ?? null;
+    unset($_SESSION['linkedin_oauth_state']);
+    if (!$code || !$state || $state !== $expectedState) {
+        header('Content-Type: text/html');
+        echo '<script>window.opener?.postMessage({type:"linkedin-oauth",ok:false,error:"State mismatch"},"*");window.close();</script>';
+        exit;
+    }
+    try {
+        $redirectUri = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . '/api/linkedin/callback';
+        $li->exchangeCode($code, $redirectUri);
+        header('Content-Type: text/html');
+        echo '<script>window.opener?.postMessage({type:"linkedin-oauth",ok:true},"*");window.close();</script>';
+    } catch (\Throwable $e) {
+        header('Content-Type: text/html');
+        echo '<script>window.opener?.postMessage({type:"linkedin-oauth",ok:false,error:' . json_encode($e->getMessage()) . '},"*");window.close();</script>';
+    }
+    exit;
+}
+
 // ─── Everything below requires auth ────────────────────────────────
 $CURRENT_USER = requireAuth();
+
+// ─── LinkedIn integration (authed) ─────────────────────────────────
+if ($resource === 'linkedin') {
+    require_once __DIR__ . '/controllers/linkedin.php';
+    $li = new LinkedInIntegration(Database::getConnection());
+    if ($id === 'status' && $method === 'GET') { echo json_encode(['data' => $li->status()]); exit; }
+    if ($id === 'credentials' && $method === 'POST') {
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $li->save([
+            'client_id'     => trim($body['client_id']     ?? ''),
+            'client_secret' => trim($body['client_secret'] ?? ''),
+            'organization_urn' => trim($body['organization_urn'] ?? ''),
+        ]);
+        echo json_encode(['data' => $li->status()]);
+        exit;
+    }
+    if ($id === 'auth-url' && $method === 'GET') {
+        $redirectUri = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . '/api/linkedin/callback';
+        $url = $li->buildAuthUrl($redirectUri);
+        if (!$url) { http_response_code(400); echo json_encode(['error' => 'Credentials not configured — paste Client ID + Secret first']); exit; }
+        echo json_encode(['data' => ['url' => $url]]);
+        exit;
+    }
+    if ($id === 'disconnect' && $method === 'POST') {
+        $li->save(['access_token' => null, 'refresh_token' => null, 'token_expires_at' => null]);
+        echo json_encode(['data' => ['disconnected' => true]]);
+        exit;
+    }
+    if ($id === 'sync' && $method === 'POST') {
+        try { echo json_encode(['data' => $li->sync()]); }
+        catch (\Throwable $e) { http_response_code(500); echo json_encode(['error' => $e->getMessage()]); }
+        exit;
+    }
+    if ($id === 'settings' && $method === 'POST') {
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $li->save([
+            'agent_distribution' => $body['agent_distribution'] ?? null,
+            'field_map'          => $body['field_map'] ?? null,
+            'sync_enabled'       => isset($body['sync_enabled']) ? (int)!!$body['sync_enabled'] : 1,
+        ]);
+        echo json_encode(['data' => $li->status()]);
+        exit;
+    }
+    http_response_code(404); echo json_encode(['error' => 'Unknown linkedin route']); exit;
+}
 
 // CSV import + auto-distribute. Frontend parses the CSV in-browser and posts
 // the rows array plus a distribution config; we batch-insert and round-robin
