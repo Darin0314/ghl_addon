@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import CallHistory from '../components/CallHistory';
+import CsvImportModal from '../components/CsvImportModal';
 
 // Phase 2 — fire the RingCentral dialer with a phone number. The
 // RingCentralDialer component (mounted in AppLayout) listens for this event
@@ -289,6 +290,7 @@ export default function Contacts() {
   const [filterStage, setFilterStage] = useState('');
   const [selected, setSelected]       = useState(new Set());
   const [showAdd, setShowAdd]         = useState(false);
+  const [showImport, setShowImport]   = useState(false);
   const [detail, setDetail]           = useState(null);
   const [loading, setLoading]         = useState(true);
   const [bulkTag, setBulkTag]         = useState('');
@@ -352,10 +354,16 @@ export default function Contacts() {
           <h2 className="text-white font-semibold text-xl">Contacts</h2>
           <p className="text-slate-500 text-sm">{contacts.length} contact{contacts.length !== 1 ? 's' : ''}</p>
         </div>
-        <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700">
-          <span className="text-lg leading-none">+</span> Add Contact
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowImport(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-600">
+            <span className="text-lg leading-none">⬆</span> Import CSV
+          </button>
+          <button onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700">
+            <span className="text-lg leading-none">+</span> Add Contact
+          </button>
+        </div>
       </div>
 
       {/* Search + stage filter */}
@@ -506,6 +514,12 @@ export default function Contacts() {
           onSaved={() => { setShowAdd(false); fetchContacts(); }}
         />
       )}
+
+      <CsvImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onComplete={() => fetchContacts()}
+      />
 
       {detail && (
         <>

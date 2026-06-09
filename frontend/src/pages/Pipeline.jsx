@@ -3,6 +3,7 @@ import {
   DndContext, PointerSensor, useSensor, useSensors,
   useDraggable, useDroppable, DragOverlay,
 } from '@dnd-kit/core';
+import CallHistory from '../components/CallHistory';
 
 // Re-use dialer hook from Contacts pattern — dispatch the same event the
 // floating RingCentralDialer listens for.
@@ -41,7 +42,7 @@ function fmtMoney(n) {
   return `$${v.toFixed(0)}`;
 }
 
-function DealCard({ deal, dragging }) {
+function DealCard({ deal, dragging, onOpen }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `deal-${deal.id}` });
   const lc = lastCalledLabel(deal.last_call_at);
   return (
@@ -49,6 +50,7 @@ function DealCard({ deal, dragging }) {
       ref={setNodeRef}
       {...attributes}
       {...listeners}
+      onDoubleClick={(e) => { e.stopPropagation(); onOpen?.(deal); }}
       className={`bg-[#141923] border border-[#1e2535] hover:border-indigo-500/40 rounded-lg p-3 cursor-grab active:cursor-grabbing select-none transition-colors ${isDragging || dragging ? 'opacity-50 ring-2 ring-indigo-500/40' : ''}`}
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
@@ -75,12 +77,124 @@ function DealCard({ deal, dragging }) {
             Call
           </button>
         )}
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onOpen?.(deal); }}
+          className="px-2 py-0.5 rounded bg-slate-700/40 hover:bg-slate-600/50 text-slate-300 text-xs"
+          title="Open detail"
+        >
+          Open
+        </button>
       </div>
     </div>
   );
 }
 
-function StageColumn({ stage, deals, totalValue }) {
+function DealDetailPanel({ deal, stages, onClose, onChange, onDeleted }) {
+  const [form, setForm] = useState({ title: deal.title, value: deal.value, stage_id: deal.stage_id, status: deal.status, expected_close: deal.expected_close || '', notes: deal.notes || '' });
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await fetch(`/api/deals/${deal.id}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          value: parseFloat(form.value) || 0,
+          stage_id: Number(form.stage_id),
+          status: form.status,
+          expected_close: form.expected_close || null,
+          notes: form.notes || null,
+        }),
+      });
+      onChange?.();
+      onClose();
+    } finally { setSaving(false); }
+  };
+  const del = async () => {
+    if (!window.confirm('Delete this deal?')) return;
+    await fetch(`/api/deals/${deal.id}`, { method: 'DELETE', credentials: 'include' });
+    onDeleted?.();
+    onClose();
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+      <aside className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-[#141923] border-l border-[#1e2535] z-50 overflow-y-auto p-5 space-y-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-slate-500 text-xs">Deal · #{deal.id}</p>
+            <h3 className="text-white text-lg font-semibold">{deal.contact_name}</h3>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-white text-xl leading-none">×</button>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <p className="text-slate-500 text-xs mb-1">Title</p>
+            <input value={form.title} onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 bg-[#0f1117] border border-[#1e2535] text-slate-200 text-sm rounded" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-slate-500 text-xs mb-1">Value</p>
+              <input type="number" step="0.01" value={form.value} onChange={(e) => setForm(f => ({ ...f, value: e.target.value }))} className="w-full px-3 py-2 bg-[#0f1117] border border-[#1e2535] text-slate-200 text-sm rounded" />
+            </div>
+            <div>
+              <p className="text-slate-500 text-xs mb-1">Stage</p>
+              <select value={form.stage_id} onChange={(e) => setForm(f => ({ ...f, stage_id: e.target.value }))} className="w-full px-3 py-2 bg-[#0f1117] border border-[#1e2535] text-slate-200 text-sm rounded">
+                {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-slate-500 text-xs mb-1">Status</p>
+              <select value={form.status} onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))} className="w-full px-3 py-2 bg-[#0f1117] border border-[#1e2535] text-slate-200 text-sm rounded">
+                <option value="open">Open</option>
+                <option value="won">Won</option>
+                <option value="lost">Lost</option>
+              </select>
+            </div>
+            <div>
+              <p className="text-slate-500 text-xs mb-1">Expected close</p>
+              <input type="date" value={form.expected_close} onChange={(e) => setForm(f => ({ ...f, expected_close: e.target.value }))} className="w-full px-3 py-2 bg-[#0f1117] border border-[#1e2535] text-slate-200 text-sm rounded" />
+            </div>
+          </div>
+          <div>
+            <p className="text-slate-500 text-xs mb-1">Notes</p>
+            <textarea rows={4} value={form.notes} onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))} className="w-full px-3 py-2 bg-[#0f1117] border border-[#1e2535] text-slate-200 text-sm rounded resize-none" />
+          </div>
+          {deal.contact_phone && (
+            <div className="flex gap-2">
+              <button type="button" onClick={() => dialPhone(deal.contact_phone)} className="flex-1 px-3 py-2 bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 text-sm rounded hover:bg-emerald-600/30">
+                Call {deal.contact_phone}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-[#1e2535] pt-3">
+          <CallHistory contactId={deal.contact_id} phoneNumber={deal.contact_phone} />
+        </div>
+
+        <div className="flex items-center justify-between pt-3 border-t border-[#1e2535]">
+          <button onClick={del} className="text-rose-400 hover:text-rose-300 text-sm">Delete deal</button>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-3 py-1.5 text-slate-400 hover:text-white text-sm">Cancel</button>
+            <button onClick={save} disabled={saving} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg">{saving ? 'Saving…' : 'Save'}</button>
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function StageColumn({ stage, deals, totalValue, onOpen }) {
   const { setNodeRef, isOver } = useDroppable({ id: `stage-${stage.id}` });
   return (
     <div className="flex-shrink-0 w-72">
@@ -99,7 +213,7 @@ function StageColumn({ stage, deals, totalValue }) {
         {deals.length === 0 ? (
           <p className="text-slate-600 text-xs italic text-center py-6">Drop deals here</p>
         ) : (
-          deals.map(d => <DealCard key={d.id} deal={d} />)
+          deals.map(d => <DealCard key={d.id} deal={d} onOpen={onOpen} />)
         )}
       </div>
     </div>
@@ -112,6 +226,7 @@ export default function Pipeline() {
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState(null);
   const [showNewDeal, setShowNewDeal] = useState(false);
+  const [openDeal, setOpenDeal] = useState(null);
   const [contacts, setContacts] = useState([]);
   const [newDealForm, setNewDealForm] = useState({ contact_id: '', title: '', value: '', stage_id: '' });
 
@@ -226,6 +341,7 @@ export default function Pipeline() {
               stage={s}
               deals={dealsByStage[s.id] || []}
               totalValue={(dealsByStage[s.id] || []).reduce((sum, d) => sum + Number(d.value || 0), 0)}
+              onOpen={(d) => setOpenDeal(d)}
             />
           ))}
         </div>
@@ -233,6 +349,16 @@ export default function Pipeline() {
           {activeDeal ? <DealCard deal={activeDeal} dragging /> : null}
         </DragOverlay>
       </DndContext>
+
+      {openDeal && (
+        <DealDetailPanel
+          deal={openDeal}
+          stages={stages}
+          onClose={() => setOpenDeal(null)}
+          onChange={load}
+          onDeleted={load}
+        />
+      )}
 
       {showNewDeal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowNewDeal(false)}>

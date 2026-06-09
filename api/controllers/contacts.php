@@ -20,6 +20,10 @@ class ContactsController {
             $where[]  = 'JSON_CONTAINS(tags, ?)';
             $params[] = json_encode($_GET['tag']);
         }
+        if (!empty($_GET['assigned_to'])) {
+            $where[]  = 'assigned_to = ?';
+            $params[] = (int)$_GET['assigned_to'];
+        }
 
         // Pull last_call_at via correlated subquery — keeps row keyed by
         // contacts.id (no GROUP BY) and surfaces stale leads on the list.
