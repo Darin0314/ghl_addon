@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import CallHistory from '../components/CallHistory';
 
 // Phase 2 — fire the RingCentral dialer with a phone number. The
 // RingCentralDialer component (mounted in AppLayout) listens for this event
@@ -204,6 +205,8 @@ function DetailPanel({ contact, stages, onClose, onDeleted }) {
           <p className="text-slate-500 text-xs mb-1">Added</p>
           <p className="text-slate-400 text-sm">{new Date(contact.created_at).toLocaleDateString()}</p>
         </div>
+
+        <CallHistory contactId={contact.id} phoneNumber={contact.phone} />
 
         {/* Quick Actions — SMS + Email */}
         <div className="border-t border-[#1e2535] pt-4">
