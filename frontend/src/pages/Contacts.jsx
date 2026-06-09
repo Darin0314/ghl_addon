@@ -288,6 +288,11 @@ export default function Contacts() {
   const [search, setSearch]           = useState('');
   const [filterTag, setFilterTag]     = useState('');
   const [filterStage, setFilterStage] = useState('');
+  // Filter by assigned agent. Persisted in localStorage so call-center reps
+  // don't have to re-select themselves on every reload. '' = show all,
+  // 'unassigned' = no agent stamped, numeric string = that agent.
+  const [filterAgent, setFilterAgent] = useState(() => localStorage.getItem('ghl_filter_agent') || '');
+  const [agents, setAgents]           = useState([]);
   const [selected, setSelected]       = useState(new Set());
   const [showAdd, setShowAdd]         = useState(false);
   const [showImport, setShowImport]   = useState(false);
@@ -301,20 +306,27 @@ export default function Contacts() {
     if (search)      params.set('search', search);
     if (filterTag)   params.set('tag', filterTag);
     if (filterStage) params.set('stage', filterStage);
+    // assigned_to: number = that agent, 'unassigned' handled client-side
+    if (filterAgent && filterAgent !== 'unassigned') params.set('assigned_to', filterAgent);
     const res = await fetch('/api/contacts?' + params);
     const { data } = await res.json();
-    setContacts(data ?? []);
+    const rows = data ?? [];
+    setContacts(filterAgent === 'unassigned' ? rows.filter(c => !c.assigned_to) : rows);
     setLoading(false);
   };
 
   useEffect(() => {
     fetch('/api/pipeline_stages').then(r => r.json()).then(({ data }) => setStages(data ?? []));
+    fetch('/api/users').then(r => r.json()).then(({ data }) => setAgents(data ?? []));
   }, []);
+
+  // Persist the selected agent so reps stay scoped to their bucket
+  useEffect(() => { localStorage.setItem('ghl_filter_agent', filterAgent); }, [filterAgent]);
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(fetchContacts, 250);
-  }, [search, filterTag, filterStage]);
+  }, [search, filterTag, filterStage, filterAgent]);
 
   const allTags = [...new Set(contacts.flatMap(c => c.tags ?? []))];
 
@@ -380,6 +392,12 @@ export default function Contacts() {
           className="bg-[#141923] border border-[#1e2535] rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500">
           <option value="">All Stages</option>
           {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <select value={filterAgent} onChange={e => setFilterAgent(e.target.value)}
+          className={`border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 ${filterAgent ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-200' : 'bg-[#141923] border-[#1e2535] text-slate-300'}`}>
+          <option value="">All Agents</option>
+          <option value="unassigned">Unassigned</option>
+          {agents.map(a => <option key={a.id} value={a.id}>My Leads — {a.name}</option>)}
         </select>
       </div>
 
