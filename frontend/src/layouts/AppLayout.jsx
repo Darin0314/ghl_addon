@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Navbar from '../components/Navbar';
+import RingCentralDialer from '../components/RingCentralDialer';
 
 const titles = {
   '/':           'Dashboard',
@@ -26,6 +27,7 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <RingCentralDialer />
     </div>
   );
 }
