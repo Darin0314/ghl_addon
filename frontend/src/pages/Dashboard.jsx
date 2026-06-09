@@ -2,6 +2,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 import { mockKPIs, mockPipelineSummary, mockActivity } from '../data/mockData';
+import TodaysCallsCard from '../components/TodaysCallsCard';
 
 const stageColors = ['#3b82f6', '#8b5cf6', '#f59e0b', '#ec4899', '#10b981', '#ef4444'];
 
@@ -112,6 +113,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Today's Calls — pulls real data from /api/call_logs?stats=today */}
+      <TodaysCallsCard />
     </div>
   );
 }

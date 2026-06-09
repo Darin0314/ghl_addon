@@ -11,6 +11,30 @@ function dialPhone(phoneNumber) {
   }));
 }
 
+// Render "5d ago" / "2h ago" / "just now" / null. Used by the "Last called"
+// pill so cold leads pop visually — anything 14d+ goes amber, 30d+ red.
+function lastCalledLabel(iso) {
+  if (!iso) return null;
+  const d = new Date(String(iso).replace(' ', 'T'));
+  if (Number.isNaN(d.getTime())) return null;
+  const diffMs = Date.now() - d.getTime();
+  const min  = Math.floor(diffMs / 60000);
+  if (min < 1)   return { text: 'just now',        tone: 'fresh' };
+  if (min < 60)  return { text: `${min}m ago`,     tone: 'fresh' };
+  const hr = Math.floor(min / 60);
+  if (hr < 24)   return { text: `${hr}h ago`,      tone: 'fresh' };
+  const days = Math.floor(hr / 24);
+  if (days < 14) return { text: `${days}d ago`,    tone: 'fresh' };
+  if (days < 30) return { text: `${days}d ago`,    tone: 'stale' };
+  return                  { text: `${days}d ago`,    tone: 'cold'  };
+}
+
+const LAST_CALL_TONES = {
+  fresh: 'bg-emerald-500/15 text-emerald-300',
+  stale: 'bg-amber-500/15 text-amber-300',
+  cold:  'bg-rose-500/15 text-rose-300',
+};
+
 const SOURCES = ['Website', 'Referral', 'Google', 'Facebook', 'Cold Call', 'Trade Show', 'Other'];
 
 const STAGE_COLORS = {
@@ -400,7 +424,7 @@ export default function Contacts() {
                   onChange={toggleAll}
                   className="accent-indigo-500 w-4 h-4 cursor-pointer" />
               </th>
-              {['Name','Email','Phone','Source','Stage','Tags',''].map(h => (
+              {['Name','Email','Phone','Source','Stage','Last Called','Tags',''].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs text-slate-500 font-medium uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -446,6 +470,16 @@ export default function Contacts() {
                     {stageName
                       ? <span className={`text-xs px-2 py-0.5 rounded-full ${stageClass}`}>{stageName}</span>
                       : <span className="text-slate-600">—</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {(() => {
+                      const lc = lastCalledLabel(c.last_call_at);
+                      return lc ? (
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${LAST_CALL_TONES[lc.tone]}`}>
+                          {lc.text}
+                        </span>
+                      ) : <span className="text-slate-600 text-xs">never</span>;
+                    })()}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">

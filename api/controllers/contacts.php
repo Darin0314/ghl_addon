@@ -21,7 +21,15 @@ class ContactsController {
             $params[] = json_encode($_GET['tag']);
         }
 
-        $sql = 'SELECT * FROM contacts';
+        // Pull last_call_at via correlated subquery — keeps row keyed by
+        // contacts.id (no GROUP BY) and surfaces stale leads on the list.
+        $sql = "SELECT contacts.*,
+                       (SELECT MAX(started_at) FROM call_logs cl
+                          WHERE cl.contact_id = contacts.id) AS last_call_at,
+                       (SELECT direction FROM call_logs cl
+                          WHERE cl.contact_id = contacts.id
+                          ORDER BY started_at DESC LIMIT 1) AS last_call_direction
+                FROM contacts";
         if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
         $sql .= ' ORDER BY created_at DESC';
 

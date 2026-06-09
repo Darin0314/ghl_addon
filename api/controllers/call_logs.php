@@ -17,6 +17,46 @@ class Call_logsController {
     public function __construct(private PDO $db) {}
 
     public function index(): void {
+        // ?stats=today — small summary for dashboard widget. Includes
+        // recent 8 calls so the dashboard can render a feed without a
+        // second round-trip.
+        if (!empty($_GET['stats']) && $_GET['stats'] === 'today') {
+            $stmt = $this->db->prepare(
+                "SELECT
+                    COUNT(*) AS total,
+                    SUM(direction = 'inbound')  AS inbound,
+                    SUM(direction = 'outbound') AS outbound,
+                    SUM(direction = 'missed')   AS missed,
+                    COALESCE(SUM(duration_sec), 0) AS total_seconds
+                 FROM call_logs
+                 WHERE started_at >= ? AND started_at < ?"
+            );
+            $todayStart = date('Y-m-d 00:00:00');
+            $tomorrow   = date('Y-m-d 00:00:00', strtotime('+1 day'));
+            $stmt->execute([$todayStart, $tomorrow]);
+            $summary = $stmt->fetch();
+            // Recent feed — last 8, any day
+            $recentStmt = $this->db->prepare(
+                "SELECT cl.id, cl.direction, cl.phone_number, cl.duration_sec,
+                        cl.started_at, cl.contact_id, c.name AS contact_name
+                 FROM call_logs cl
+                 LEFT JOIN contacts c ON c.id = cl.contact_id
+                 ORDER BY cl.started_at DESC LIMIT 8"
+            );
+            $recentStmt->execute();
+            echo json_encode(['data' => [
+                'today'  => [
+                    'total'         => (int)$summary['total'],
+                    'inbound'       => (int)$summary['inbound'],
+                    'outbound'      => (int)$summary['outbound'],
+                    'missed'        => (int)$summary['missed'],
+                    'total_seconds' => (int)$summary['total_seconds'],
+                ],
+                'recent' => $recentStmt->fetchAll(),
+            ]]);
+            return;
+        }
+
         $where  = [];
         $params = [];
 
