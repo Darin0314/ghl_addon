@@ -73,3 +73,26 @@ INSERT IGNORE INTO pipeline_stages (pipeline_id, name, sort_order, color) VALUES
     (1, 'Proposal Sent',  4, '#ec4899'),
     (1, 'Won',            5, '#10b981'),
     (1, 'Lost',           6, '#ef4444');
+
+-- Phase 3 — RingCentral call logging
+CREATE TABLE IF NOT EXISTS call_logs (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    contact_id      INT UNSIGNED DEFAULT NULL,
+    user_id         INT UNSIGNED DEFAULT NULL,
+    direction       ENUM('inbound','outbound','missed') NOT NULL DEFAULT 'outbound',
+    phone_number    VARCHAR(30) NOT NULL,
+    duration_sec    INT UNSIGNED NOT NULL DEFAULT 0,
+    rc_session_id   VARCHAR(64) DEFAULT NULL,
+    rc_call_id      VARCHAR(64) DEFAULT NULL,
+    recording_url   VARCHAR(500) DEFAULT NULL,
+    result          VARCHAR(30) DEFAULT NULL,  -- 'connected', 'no-answer', 'voicemail', 'busy', etc.
+    notes           TEXT DEFAULT NULL,
+    started_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ended_at        DATETIME DEFAULT NULL,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE SET NULL,
+    FOREIGN KEY (user_id)    REFERENCES users(id)    ON DELETE SET NULL,
+    INDEX (contact_id, started_at),
+    INDEX (phone_number, started_at),
+    UNIQUE KEY uq_rc_session (rc_session_id)
+) ENGINE=InnoDB;

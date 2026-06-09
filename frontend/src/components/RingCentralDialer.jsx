@@ -98,6 +98,50 @@ export default function RingCentralDialer() {
     return () => document.removeEventListener('rc-adapter-new-call', onCall);
   }, []);
 
+  // Phase 3 — log every call to /api/call_logs on call end. RC's adapter
+  // emits `rc-call-end-notify` via window.postMessage when a call wraps up;
+  // payload includes session id, direction, duration, recording URL, etc.
+  useEffect(() => {
+    const onMessage = (event) => {
+      const msg = event?.data;
+      if (!msg || typeof msg !== 'object') return;
+      if (msg.type !== 'rc-call-end-notify' && msg.type !== 'rc-call-end-notification') return;
+      const call = msg.call || {};
+      const direction = (call.direction || '').toLowerCase() === 'inbound' ? 'inbound' : 'outbound';
+      // Result: 'missed' if inbound and never answered; otherwise infer from
+      // RC's `result` (Voicemail, Call connected, No Answer, Busy, etc.)
+      const rcResult = (call.result || '').toLowerCase();
+      const final = direction === 'inbound' && rcResult.includes('miss') ? 'missed' : direction;
+      const startedMs = Number(call.startTime || msg.startTime || Date.now());
+      const endedMs   = Number(call.endTime   || msg.endTime   || Date.now());
+      const phone =
+        direction === 'inbound'
+          ? (call.from?.phoneNumber || call.from?.extensionNumber || '')
+          : (call.to?.phoneNumber   || call.to?.extensionNumber   || '');
+
+      const payload = {
+        direction:     final,
+        phone_number:  String(phone || '').trim(),
+        duration_sec:  Math.max(0, Math.round((endedMs - startedMs) / 1000)),
+        rc_session_id: call.sessionId || call.telephonySessionId || null,
+        rc_call_id:    call.id || null,
+        recording_url: call.recording?.link || null,
+        result:        call.result || null,
+        started_at:    new Date(startedMs).toISOString().slice(0, 19).replace('T', ' '),
+        ended_at:      new Date(endedMs).toISOString().slice(0, 19).replace('T', ' '),
+      };
+      if (!payload.phone_number) return; // skip — nothing useful to log
+      fetch('/api/call_logs', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch(err => console.warn('Call log failed', err));
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+
   return (
     <>
       {/* Floating dial button — always present */}

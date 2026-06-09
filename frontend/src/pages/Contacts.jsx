@@ -1,5 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 
+// Phase 2 — fire the RingCentral dialer with a phone number. The
+// RingCentralDialer component (mounted in AppLayout) listens for this event
+// and dials the number through the embedded RC widget.
+function dialPhone(phoneNumber) {
+  if (!phoneNumber) return;
+  document.dispatchEvent(new CustomEvent('rc-adapter-new-call', {
+    detail: { phoneNumber: String(phoneNumber), toCall: true },
+  }));
+}
+
 const SOURCES = ['Website', 'Referral', 'Google', 'Facebook', 'Cold Call', 'Trade Show', 'Other'];
 
 const STAGE_COLORS = {
@@ -154,12 +164,23 @@ function DetailPanel({ contact, stages, onClose, onDeleted }) {
 
         {[
           { label: 'Email',  value: contact.email },
-          { label: 'Phone',  value: contact.phone },
+          { label: 'Phone',  value: contact.phone, dial: true },
           { label: 'Source', value: contact.source },
-        ].map(({ label, value }) => value ? (
+        ].map(({ label, value, dial }) => value ? (
           <div key={label}>
             <p className="text-slate-500 text-xs mb-1">{label}</p>
-            <p className="text-slate-200 text-sm">{value}</p>
+            {dial ? (
+              <button
+                type="button"
+                onClick={() => dialPhone(value)}
+                className="text-emerald-400 hover:text-emerald-300 text-sm underline underline-offset-2 cursor-pointer"
+                title="Click to dial via RingCentral"
+              >
+                {value}
+              </button>
+            ) : (
+              <p className="text-slate-200 text-sm">{value}</p>
+            )}
           </div>
         ) : null)}
 
@@ -189,8 +210,21 @@ function DetailPanel({ contact, stages, onClose, onDeleted }) {
           <p className="text-slate-500 text-xs mb-2">Quick Actions</p>
           <div className="flex gap-2">
             {contact.phone && (
+              <button
+                type="button"
+                onClick={() => dialPhone(contact.phone)}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 text-xs rounded-lg hover:bg-emerald-600/30"
+                title="Dial via RingCentral"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                </svg>
+                Call
+              </button>
+            )}
+            {contact.phone && (
               <a href={`sms:${contact.phone}`}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 text-xs rounded-lg hover:bg-emerald-600/30">
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-purple-600/20 border border-purple-500/30 text-purple-400 text-xs rounded-lg hover:bg-purple-600/30">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
                   <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
                 </svg>
@@ -392,7 +426,18 @@ export default function Contacts() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-slate-400">{c.email ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-400">{c.phone ?? '—'}</td>
+                  <td className="px-4 py-3 text-slate-400">
+                    {c.phone ? (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); dialPhone(c.phone); }}
+                        className="text-emerald-400 hover:text-emerald-300 hover:underline"
+                        title="Click to dial via RingCentral"
+                      >
+                        {c.phone}
+                      </button>
+                    ) : '—'}
+                  </td>
                   <td className="px-4 py-3 text-slate-400">{c.source ?? '—'}</td>
                   <td className="px-4 py-3">
                     {stageName
