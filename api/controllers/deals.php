@@ -15,6 +15,15 @@ class DealsController {
     public function index(): void {
         $where = [];
         $params = [];
+
+        // Role scoping — agents see only deals on contacts assigned to them.
+        $me = currentUser();
+        if ($me && ($me['role'] ?? '') === 'agent') {
+            $where[]  = '(d.assigned_to = ? OR c.assigned_to = ?)';
+            $params[] = (int)$me['id'];
+            $params[] = (int)$me['id'];
+        }
+
         if (!empty($_GET['pipeline_id'])) {
             $where[]  = 'd.pipeline_id = ?';
             $params[] = (int)$_GET['pipeline_id'];

@@ -7,6 +7,14 @@ class ContactsController {
         $where  = [];
         $params = [];
 
+        // Role scoping — agents see only contacts assigned to them. Server-
+        // side enforced so URL hand-edits can't bypass it.
+        $me = currentUser();
+        if ($me && ($me['role'] ?? '') === 'agent') {
+            $where[]  = 'assigned_to = ?';
+            $params[] = (int)$me['id'];
+        }
+
         if (!empty($_GET['search'])) {
             $s = '%' . $_GET['search'] . '%';
             $where[]  = '(name LIKE ? OR email LIKE ? OR phone LIKE ?)';

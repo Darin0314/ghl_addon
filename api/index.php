@@ -1,10 +1,12 @@
 <?php
 
 require_once __DIR__ . '/middleware/cors.php';
+require_once __DIR__ . '/middleware/auth.php';
 require_once __DIR__ . '/config/database.php';
 
 applyCors();
 header('Content-Type: application/json');
+startAuthSession();
 
 $method = $_SERVER['REQUEST_METHOD'];
 $uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -13,6 +15,55 @@ $parts  = explode('/', trim($uri, '/'));
 $resource = $parts[0] ?? '';
 $id       = $parts[1] ?? null;
 $action   = $parts[2] ?? null;   // e.g. /api/contacts/bulk/tag
+
+// ─── Auth routes (public) ────────────────────────────────────────────
+if ($resource === 'login' && $method === 'POST') {
+    $body = json_decode(file_get_contents('php://input'), true) ?? [];
+    $email = trim($body['email'] ?? '');
+    $pass  = $body['password'] ?? '';
+    if (!$email || !$pass) { http_response_code(422); echo json_encode(['error' => 'Email + password required']); exit; }
+    $db = Database::getConnection();
+    $stmt = $db->prepare('SELECT id, name, email, password_hash, role, avatar_url FROM users WHERE email = ? AND is_active = 1 LIMIT 1');
+    $stmt->execute([$email]);
+    $u = $stmt->fetch();
+    if (!$u || !password_verify($pass, $u['password_hash'])) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Invalid credentials']);
+        exit;
+    }
+    $_SESSION['user'] = [
+        'id'         => (int)$u['id'],
+        'name'       => $u['name'],
+        'email'      => $u['email'],
+        'role'       => $u['role'],
+        'avatar_url' => $u['avatar_url'],
+    ];
+    echo json_encode(['data' => $_SESSION['user']]);
+    exit;
+}
+if ($resource === 'logout' && $method === 'POST') {
+    $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+        $p = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
+    }
+    session_destroy();
+    echo json_encode(['data' => ['logged_out' => true]]);
+    exit;
+}
+if ($resource === 'me' && $method === 'GET') {
+    $u = currentUser();
+    if (!$u) { http_response_code(401); echo json_encode(['error' => 'Not signed in']); exit; }
+    echo json_encode(['data' => $u]);
+    exit;
+}
+if ($resource === 'health' && $method === 'GET') {
+    echo json_encode(['status' => 'ok', 'timestamp' => date('c')]);
+    exit;
+}
+
+// ─── Everything below requires auth ────────────────────────────────
+$CURRENT_USER = requireAuth();
 
 // CSV import + auto-distribute. Frontend parses the CSV in-browser and posts
 // the rows array plus a distribution config; we batch-insert and round-robin
@@ -158,12 +209,6 @@ if ($resource && file_exists($controllerFile)) {
         };
         exit;
     }
-}
-
-// Health check
-if ($resource === 'health') {
-    echo json_encode(['status' => 'ok', 'timestamp' => date('c')]);
-    exit;
 }
 
 http_response_code(404);

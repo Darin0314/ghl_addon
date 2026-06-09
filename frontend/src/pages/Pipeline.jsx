@@ -227,6 +227,9 @@ export default function Pipeline() {
   const [activeId, setActiveId] = useState(null);
   const [showNewDeal, setShowNewDeal] = useState(false);
   const [openDeal, setOpenDeal] = useState(null);
+  // Persisted view preference — list vs kanban
+  const [view, setView] = useState(() => localStorage.getItem('ghl_pipeline_view') || 'kanban');
+  useEffect(() => { localStorage.setItem('ghl_pipeline_view', view); }, [view]);
   const [contacts, setContacts] = useState([]);
   const [newDealForm, setNewDealForm] = useState({ contact_id: '', title: '', value: '', stage_id: '' });
 
@@ -324,15 +327,75 @@ export default function Pipeline() {
           {deals.length} deal{deals.length === 1 ? '' : 's'} ·{' '}
           {fmtMoney(deals.reduce((s, d) => s + Number(d.value || 0), 0))} total
         </p>
-        <button
-          type="button"
-          onClick={() => setShowNewDeal(true)}
-          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg"
-        >
-          + New Deal
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-lg border border-[#1e2535] overflow-hidden">
+            <button type="button" onClick={() => setView('kanban')}
+              className={`px-3 py-1.5 text-sm ${view === 'kanban' ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-300 hover:bg-[#1e2535]'}`}>Kanban</button>
+            <button type="button" onClick={() => setView('list')}
+              className={`px-3 py-1.5 text-sm ${view === 'list' ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-300 hover:bg-[#1e2535]'}`}>List</button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowNewDeal(true)}
+            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg"
+          >
+            + New Deal
+          </button>
+        </div>
       </div>
 
+      {view === 'list' ? (
+        <div className="bg-[#141923] border border-[#1e2535] rounded-xl overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#1e2535] text-left">
+                {['Title','Contact','Value','Stage','Status','Last Called','Expected Close',''].map(h => (
+                  <th key={h} className="px-4 py-2 text-xs text-slate-500 font-medium uppercase tracking-wider">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#1e2535]">
+              {deals.length === 0 && (
+                <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-500 italic">No deals yet — hit "+ New Deal" to start the pipeline.</td></tr>
+              )}
+              {deals.map(d => {
+                const lc = lastCalledLabel(d.last_call_at);
+                const stage = stages.find(s => s.id === d.stage_id);
+                return (
+                  <tr key={d.id} className="hover:bg-[#0f1117]">
+                    <td className="px-4 py-2 text-white">{d.title}</td>
+                    <td className="px-4 py-2 text-slate-300">{d.contact_name || '—'}</td>
+                    <td className="px-4 py-2 text-emerald-300 font-medium">{fmtMoney(d.value)}</td>
+                    <td className="px-4 py-2">
+                      {stage ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs">
+                          <span className="w-2 h-2 rounded-full" style={{ background: stage.color || '#6b7280' }} />
+                          <span className="text-slate-300">{stage.name}</span>
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td className="px-4 py-2 capitalize text-slate-300">{d.status}</td>
+                    <td className="px-4 py-2">
+                      {lc ? (
+                        <span className={`px-1.5 py-0.5 rounded-full text-xs border ${LAST_CALL_TONES[lc.tone]}`}>☎ {lc.text}</span>
+                      ) : <span className="text-slate-600 text-xs">never</span>}
+                    </td>
+                    <td className="px-4 py-2 text-slate-400 text-xs">{d.expected_close || '—'}</td>
+                    <td className="px-4 py-2 text-right">
+                      <div className="inline-flex items-center gap-1">
+                        {d.contact_phone && (
+                          <button onClick={() => dialPhone(d.contact_phone)} className="px-2 py-0.5 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-xs">Call</button>
+                        )}
+                        <button onClick={() => setOpenDeal(d)} className="px-2 py-0.5 rounded bg-slate-700/40 hover:bg-slate-600/50 text-slate-300 text-xs">Open</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {stages.map(s => (
@@ -349,6 +412,7 @@ export default function Pipeline() {
           {activeDeal ? <DealCard deal={activeDeal} dragging /> : null}
         </DragOverlay>
       </DndContext>
+      )}
 
       {openDeal && (
         <DealDetailPanel

@@ -1,7 +1,16 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { logout } from '../lib/auth';
 
-export default function Navbar({ title = 'Dashboard' }) {
+export default function Navbar({ title = 'Dashboard', user }) {
   const [query, setQuery] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const initials = (user?.name || '?').split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase();
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <header className="flex items-center justify-between px-6 py-3 bg-[#0d1117] border-b border-[#1e2535] shrink-0">
@@ -34,9 +43,35 @@ export default function Navbar({ title = 'Dashboard' }) {
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full" />
         </button>
 
-        {/* Avatar */}
-        <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs text-white font-semibold cursor-pointer">
-          D
+        {/* Avatar + dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuOpen(o => !o)}
+            className="w-8 h-8 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center text-xs text-white font-semibold"
+            title={user?.name}
+          >
+            {initials}
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 mt-2 w-52 bg-[#141923] border border-[#1e2535] rounded-lg shadow-xl z-40 p-2 text-sm">
+                <div className="px-2 py-1.5 border-b border-[#1e2535] mb-1">
+                  <p className="text-white font-medium truncate">{user?.name}</p>
+                  <p className="text-slate-500 text-xs truncate">{user?.email}</p>
+                  {user?.role && <p className="text-indigo-400 text-xs mt-0.5 capitalize">{user.role}</p>}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full text-left px-2 py-1.5 text-slate-300 hover:bg-[#1e2535] hover:text-white rounded"
+                >
+                  Sign out
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>

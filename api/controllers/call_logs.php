@@ -60,6 +60,15 @@ class Call_logsController {
         $where  = [];
         $params = [];
 
+        // Role scoping — agents see only calls tied to their contacts or to
+        // their own user_id (e.g. inbound calls before contact-match).
+        $me = currentUser();
+        if ($me && ($me['role'] ?? '') === 'agent') {
+            $where[]  = '(cl.user_id = ? OR c.assigned_to = ?)';
+            $params[] = (int)$me['id'];
+            $params[] = (int)$me['id'];
+        }
+
         if (!empty($_GET['contact_id'])) {
             $where[]  = 'cl.contact_id = ?';
             $params[] = (int)$_GET['contact_id'];

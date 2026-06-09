@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import AppLayout from './layouts/AppLayout';
+import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Contacts from './pages/Contacts';
 import Pipeline from './pages/Pipeline';
@@ -13,6 +14,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/login" element={<Login />} />
         <Route element={<AppLayout />}>
           <Route index             element={<Dashboard />} />
           <Route path="contacts"   element={<Contacts />} />

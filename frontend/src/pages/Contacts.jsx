@@ -293,6 +293,7 @@ export default function Contacts() {
   // 'unassigned' = no agent stamped, numeric string = that agent.
   const [filterAgent, setFilterAgent] = useState(() => localStorage.getItem('ghl_filter_agent') || '');
   const [agents, setAgents]           = useState([]);
+  const [me, setMe]                   = useState(null);
   const [selected, setSelected]       = useState(new Set());
   const [showAdd, setShowAdd]         = useState(false);
   const [showImport, setShowImport]   = useState(false);
@@ -316,8 +317,9 @@ export default function Contacts() {
   };
 
   useEffect(() => {
-    fetch('/api/pipeline_stages').then(r => r.json()).then(({ data }) => setStages(data ?? []));
-    fetch('/api/users').then(r => r.json()).then(({ data }) => setAgents(data ?? []));
+    fetch('/api/pipeline_stages', { credentials: 'include' }).then(r => r.json()).then(({ data }) => setStages(data ?? []));
+    fetch('/api/users',          { credentials: 'include' }).then(r => r.json()).then(({ data }) => setAgents(data ?? []));
+    fetch('/api/me',             { credentials: 'include' }).then(r => r.json()).then(({ data }) => setMe(data ?? null));
   }, []);
 
   // Persist the selected agent so reps stay scoped to their bucket
@@ -393,12 +395,17 @@ export default function Contacts() {
           <option value="">All Stages</option>
           {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
-        <select value={filterAgent} onChange={e => setFilterAgent(e.target.value)}
-          className={`border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 ${filterAgent ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-200' : 'bg-[#141923] border-[#1e2535] text-slate-300'}`}>
-          <option value="">All Agents</option>
-          <option value="unassigned">Unassigned</option>
-          {agents.map(a => <option key={a.id} value={a.id}>My Leads — {a.name}</option>)}
-        </select>
+        {/* Agents are forced to their own bucket — backend scopes the query
+            either way; here we just hide the picker so they don't see
+            phantom "Unassigned" / other-agent options. */}
+        {me?.role !== 'agent' && (
+          <select value={filterAgent} onChange={e => setFilterAgent(e.target.value)}
+            className={`border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 ${filterAgent ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-200' : 'bg-[#141923] border-[#1e2535] text-slate-300'}`}>
+            <option value="">All Agents</option>
+            <option value="unassigned">Unassigned</option>
+            {agents.map(a => <option key={a.id} value={a.id}>My Leads — {a.name}</option>)}
+          </select>
+        )}
       </div>
 
       {/* Tag filter chips */}
