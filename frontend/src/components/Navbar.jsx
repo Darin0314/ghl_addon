@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../lib/auth';
+import ThemeToggle from './ThemeToggle';
 
 export default function Navbar({ title = 'Dashboard', user }) {
   const [query, setQuery] = useState('');
@@ -33,6 +34,8 @@ export default function Navbar({ title = 'Dashboard', user }) {
             className="bg-[#1e2535] text-sm text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 w-52 focus:outline-none focus:ring-1 focus:ring-indigo-500 border border-[#2a3347]"
           />
         </div>
+
+        <ThemeToggle />
 
         {/* Notifications */}
         <button className="relative p-2 rounded-lg text-slate-400 hover:bg-[#1e2535] hover:text-white transition-colors">

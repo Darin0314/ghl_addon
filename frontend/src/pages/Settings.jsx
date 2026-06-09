@@ -195,6 +195,126 @@ function LinkedInCard() {
   );
 }
 
+function GmailCard() {
+  const [status, setStatus] = useState(null);
+  const [me, setMe] = useState(null);
+  const [client, setClient] = useState({ client_id: '', client_secret: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+
+  const load = async () => {
+    try {
+      const [s, u] = await Promise.all([
+        fetch('/api/gmail/status', { credentials: 'include' }).then(r => r.json()),
+        fetch('/api/me',           { credentials: 'include' }).then(r => r.json()),
+      ]);
+      setStatus(s?.data || null);
+      setMe(u?.data || null);
+    } catch (e) { setError(e.message); }
+  };
+  useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    const onMsg = (e) => {
+      if (e?.data?.type !== 'gmail-oauth') return;
+      if (e.data.ok) { setMsg('Connected'); load(); }
+      else setError(e.data.error || 'Gmail OAuth failed');
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const saveClient = async () => {
+    setSaving(true); setError(''); setMsg('');
+    try {
+      const res = await fetch('/api/gmail/client', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(client),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error || 'Save failed');
+      setClient({ client_id: '', client_secret: '' });
+      setMsg('Client credentials saved');
+      load();
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+  const connect = async () => {
+    setError(''); setMsg('');
+    try {
+      const res = await fetch('/api/gmail/auth-url', { credentials: 'include' });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error || 'Could not start OAuth');
+      window.open(j.data.url, 'gmail_oauth', 'width=600,height=720');
+    } catch (e) { setError(e.message); }
+  };
+  const disconnect = async () => {
+    await fetch('/api/gmail/disconnect', { method: 'POST', credentials: 'include' });
+    load();
+  };
+
+  if (!status) return <p className="text-slate-500 text-sm">Loading Gmail config…</p>;
+  const isAdmin = me?.role === 'admin';
+
+  return (
+    <div className="bg-[#141923] border border-[#1e2535] rounded-xl p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-white font-semibold">Gmail</h3>
+          <p className="text-slate-500 text-xs">Per-user — each rep connects their own inbox so outbound mail comes from their address.</p>
+        </div>
+        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.connected ? 'bg-emerald-500/15 text-emerald-300' : status.configured ? 'bg-amber-500/15 text-amber-300' : 'bg-slate-700 text-slate-400'}`}>
+          {status.connected ? `Connected — ${status.email_address || 'Gmail'}` : status.configured ? 'Ready to connect' : 'Not configured'}
+        </span>
+      </div>
+
+      {error && <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs rounded p-2">{error}</div>}
+      {msg && <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs rounded p-2">{msg}</div>}
+
+      {!status.configured ? (
+        isAdmin ? (
+          <div className="space-y-3">
+            <p className="text-slate-400 text-xs">
+              Paste credentials from your Google Cloud Console OAuth client
+              (<a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">console.cloud.google.com/apis/credentials</a>).
+              Authorized redirect URI: <code className="px-1 bg-[#0f1117] rounded">{location.origin}/api/gmail/callback</code>.
+              Required scopes: <code className="px-1 bg-[#0f1117] rounded">gmail.send</code> + <code className="px-1 bg-[#0f1117] rounded">userinfo.email</code>.
+            </p>
+            <input type="text" placeholder="Client ID" value={client.client_id}
+              onChange={e => setClient(c => ({ ...c, client_id: e.target.value }))}
+              className="w-full px-3 py-2 bg-[#0f1117] border border-[#1e2535] text-slate-200 text-sm rounded" />
+            <input type="password" placeholder="Client Secret" value={client.client_secret}
+              onChange={e => setClient(c => ({ ...c, client_secret: e.target.value }))}
+              className="w-full px-3 py-2 bg-[#0f1117] border border-[#1e2535] text-slate-200 text-sm rounded" />
+            <button onClick={saveClient} disabled={saving || !client.client_id || !client.client_secret}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 text-white text-sm rounded-lg">
+              Save Gmail client
+            </button>
+          </div>
+        ) : (
+          <p className="text-slate-400 text-sm italic">Gmail OAuth client isn't configured yet — ask an admin to paste the Google Cloud credentials.</p>
+        )
+      ) : (
+        <div className="flex gap-2 flex-wrap">
+          {status.connected ? (
+            <button onClick={disconnect}
+              className="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-sm rounded-lg border border-rose-500/30">
+              Disconnect my Gmail
+            </button>
+          ) : (
+            <button onClick={connect}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg">
+              Connect my Gmail
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Settings() {
   return (
     <div className="max-w-4xl mx-auto space-y-4">
@@ -202,6 +322,7 @@ export default function Settings() {
         <h2 className="text-white font-semibold text-xl">Settings</h2>
         <p className="text-slate-500 text-sm">Integrations + system preferences</p>
       </div>
+      <GmailCard />
       <LinkedInCard />
     </div>
   );

@@ -62,6 +62,32 @@ if ($resource === 'health' && $method === 'GET') {
     exit;
 }
 
+// ─── Gmail OAuth callback is public (Google redirects here, no session) ────
+if ($resource === 'gmail' && $id === 'callback' && $method === 'GET') {
+    require_once __DIR__ . '/controllers/gmail.php';
+    $g = new GmailIntegration(Database::getConnection());
+    $code   = $_GET['code']  ?? '';
+    $state  = $_GET['state'] ?? '';
+    $expectedState = $_SESSION['gmail_oauth_state'] ?? null;
+    $userId        = $_SESSION['gmail_oauth_user']  ?? null;
+    unset($_SESSION['gmail_oauth_state'], $_SESSION['gmail_oauth_user']);
+    if (!$code || !$state || $state !== $expectedState || !$userId) {
+        header('Content-Type: text/html');
+        echo '<script>window.opener?.postMessage({type:"gmail-oauth",ok:false,error:"State mismatch"},"*");window.close();</script>';
+        exit;
+    }
+    try {
+        $redirectUri = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . '/api/gmail/callback';
+        $g->exchangeCode($code, $redirectUri, (int)$userId);
+        header('Content-Type: text/html');
+        echo '<script>window.opener?.postMessage({type:"gmail-oauth",ok:true},"*");window.close();</script>';
+    } catch (\Throwable $e) {
+        header('Content-Type: text/html');
+        echo '<script>window.opener?.postMessage({type:"gmail-oauth",ok:false,error:' . json_encode($e->getMessage()) . '},"*");window.close();</script>';
+    }
+    exit;
+}
+
 // ─── LinkedIn OAuth callback is public (LinkedIn redirects here, no session) ────
 if ($resource === 'linkedin' && $id === 'callback' && $method === 'GET') {
     require_once __DIR__ . '/controllers/linkedin.php';
@@ -89,6 +115,52 @@ if ($resource === 'linkedin' && $id === 'callback' && $method === 'GET') {
 
 // ─── Everything below requires auth ────────────────────────────────
 $CURRENT_USER = requireAuth();
+
+// ─── Gmail integration (authed) ────────────────────────────────────
+if ($resource === 'gmail') {
+    require_once __DIR__ . '/controllers/gmail.php';
+    $g  = new GmailIntegration(Database::getConnection());
+    $me = $CURRENT_USER;
+    if ($id === 'status' && $method === 'GET') {
+        echo json_encode(['data' => $g->statusForUser((int)$me['id'])]);
+        exit;
+    }
+    if ($id === 'client' && $method === 'POST') {
+        if (($me['role'] ?? '') !== 'admin') { http_response_code(403); echo json_encode(['error' => 'Admin only']); exit; }
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $g->saveClient(trim($body['client_id'] ?? ''), trim($body['client_secret'] ?? ''));
+        echo json_encode(['data' => $g->statusForUser((int)$me['id'])]);
+        exit;
+    }
+    if ($id === 'auth-url' && $method === 'GET') {
+        $redirectUri = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . '/api/gmail/callback';
+        $url = $g->buildAuthUrl((int)$me['id'], $redirectUri);
+        if (!$url) { http_response_code(400); echo json_encode(['error' => 'Gmail OAuth client not configured — admin must paste Client ID + Secret first']); exit; }
+        echo json_encode(['data' => ['url' => $url]]);
+        exit;
+    }
+    if ($id === 'disconnect' && $method === 'POST') {
+        $g->disconnect((int)$me['id']);
+        echo json_encode(['data' => ['disconnected' => true]]);
+        exit;
+    }
+    if ($id === 'send' && $method === 'POST') {
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        try {
+            $res = $g->send(
+                (int)$me['id'],
+                trim($body['to_email'] ?? ''),
+                trim($body['to_name']  ?? ''),
+                trim($body['subject']  ?? ''),
+                (string)($body['body'] ?? ''),
+                !empty($body['contact_id']) ? (int)$body['contact_id'] : null,
+            );
+            echo json_encode(['data' => $res]);
+        } catch (\Throwable $e) { http_response_code(500); echo json_encode(['error' => $e->getMessage()]); }
+        exit;
+    }
+    http_response_code(404); echo json_encode(['error' => 'Unknown gmail route']); exit;
+}
 
 // ─── LinkedIn integration (authed) ─────────────────────────────────
 if ($resource === 'linkedin') {
