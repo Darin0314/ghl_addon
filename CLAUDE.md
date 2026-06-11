@@ -332,3 +332,112 @@ Everything M-2 → M-12 is **backend + data only** right now. Pages still to bui
 - Frontend UI for Sequences + Templates (M-3 surface) — highest leverage since the content is already written.
 - After that, /pricing + /checkout (M-8 surface) so trials can actually be sold.
 - Then the WebRTC softphone for the call center.
+
+### Phase M-13 — DONE ✅ 2026-06-11 — Pixel tracking (Meta/Google/YT/LinkedIn/TikTok/X/Reddit)
+
+- `ad_pixels` extended with `dataset_id`, `test_event_code`, `notes`
+- 6 platform rows seeded (Meta + LinkedIn + Google were from M-5, added TikTok/X/Reddit)
+- `pixel_events` log + `pixel_event_mappings` (10 standard funnel events × 6 platforms)
+- `GET /api/pixel-snippets?account_id=4` — public JS bundle that auto-loads every active pixel (fbq, gtag, lintrk, ttq, twq, rdt) + `window.cadsuiteTrack()`
+- `POST /api/track` — public event endpoint, writes to `funnel_events` + queues server-side Conversion API dispatch
+- `/pixels` admin page: per-platform card with Pixel ID + CAPI token + Active toggle
+- Drop-in snippet for any landing page: `<script src="https://marketing.cadsuite.com/api/pixel-snippets?account_id=4" async></script>`
+- **Server-side CAPI dispatcher cron still TODO** — queue + payload are written, outbound POST is stubbed
+
+### Login fix — DONE ✅ 2026-06-11
+
+- Prod `.env` was owned `root:root` → PHP-FPM (`cadsuite` user) couldn't read it → blank DB creds → silent 500 on `/api/login`. Chowned to `cadsuite:cadsuite`. Login back to 200.
+
+### Phase 5 — Email Campaign Builder — DONE ✅ 2026-06-11
+
+- Schema: `campaigns`, `campaign_recipients`, `campaign_link_clicks`, `smtp_settings`, `unsubscribes`
+- `CampaignsController` with `?action=recipients|send_test|send` — pulls contacts via `recipient_filter`, sends via `mail()` (PHPMailer/SMTP upgrade is a follow-up), enforces unsubscribe + spam suppression
+- Block editor (heading/text/image/button/divider/spacer) + markdown body
+- Public open pixel (`/api/track-open`), click tracker (`/api/track-click`), unsubscribe page (`/api/unsubscribe`)
+- 4-stat dashboard per campaign: recipients/sent/opens/clicks
+- Templates `{first_name}` token substitution at send time
+
+### Phase 6 — Automation Workflow Builder — DONE ✅ 2026-06-11
+
+- Schema: `automations`, `automation_nodes`, `automation_edges`, `automation_runs`
+- 10 trigger types (`form_submit`, `tag_added`, `appointment_booked`, `email_opened/clicked`, `deal_stage_changed`, `contact_created`, `schedule`, `webhook`, `manual`)
+- 14 node types (`send_email/sms`, `voicemail_drop`, `add/remove_tag`, `wait`, `if_branch`, `update_stage`, `create_task`, `webhook`, `assign_user`, `book_meeting`, etc.)
+- Timeline-style step editor with per-node config + branch edges
+- 3 seeded automation templates: Welcome new lead, Demo no-show recovery, Webinar attended → follow-up
+- **Runtime executor cron still TODO** — schema + UI ready, the actual node-execution worker is the next phase
+
+### Phase 7 — Calendar (Calendly-style) — DONE ✅ 2026-06-11
+
+- Schema: `event_types`, `availability_blocks`, `appointments`, `availability_overrides`
+- Public `GET /api/book/{slug}/availability?date=…` → returns open slots with buffer + busy-block awareness
+- Public `POST /api/book/{slug}` → books appointment + auto-upserts contact
+- Admin page lists Event Types (cards) + Bookings table (upcoming/all toggle)
+- Seeded: 30-min `cadsuite-demo` (zoom, 4h notice, 30d advance) + 15-min `cadsuite-discovery` (phone), Mon-Fri 9-5 Denver
+
+### Phase 8 — Funnels (page builder) — DONE ✅ 2026-06-11
+
+- Schema: `funnels`, `funnel_pages`, `form_submissions`
+- Multi-step editor with page tabs + per-page block editor (heading/text/image/video/button/form/calendar/divider)
+- Public `POST /api/submit` for funnel-page form posts — writes `form_submissions` + upserts contact + increments page conversion count
+- Seeded 3-page Contractor demo funnel (lead-magnet → calendar → thank-you)
+
+### UI restyle (matching Canvasser) — DONE ✅ 2026-06-11
+
+- **Inter** (Google Fonts) + **JetBrains Mono** replace system-ui (the "old/squished" feel was Arial fallback)
+- Deep slate-950 base with radial brand-orange gradient (matches canvasser AppShell)
+- Orange brand palette (#fb923c / #f97316 / #ea580c) replaces indigo across every component via CSS class overrides
+- Translucent cards with `backdrop-blur` for the crisp Canvasser feel
+- Gradient logo + avatar (orange→rose)
+- **First attempt: top horizontal nav** — user said it was crappy + responsive was terrible
+- **Final: left sidebar restored** with 18 nav links grouped into 5 sections (Workspace, Outbound, Grow, Track, Admin) + icons + section headers
+- Bumped sidebar typography to `text-[15px] font-semibold` + 18px icons + 2.25 stroke weight to match the other CRMs' bolder look
+- Tab title fixed: "frontend" → "CADsuite Marketing"
+- Favicon swapped to `cadsuite_favicon.ico` (the same one shipped across all the other CRMs)
+
+### CADsuite contact rebuild — DONE ✅ 2026-06-11
+
+- Wiped the 19 contacts from M-1's product-customer pull
+- New sources:
+  - `cadsuite_cscart.cscart_users` (user_type='C'): 1,366 unique customers
+  - `cadsuite_supplements_live.customers` (account_id=24, the CADsuite.com supplementer install): 2,249
+  - `aerialdiagrams_site.cscart_users`: 663
+  - 221 cross-source merges (same email across 2-3 sources)
+- **Total: 4,499 unique deduped contacts** under account_id=4 (CADsuite.com), tagged `persona-gc-restoration`
+- Download CSV: `https://marketing.cadsuite.com/api/contacts-csv?account_id=4`
+- "Mark as Spam" bulk action added: select rows → amber button → POSTs to `/api/contacts/bulk/spam` → adds emails to `unsubscribes` (reason='spam') + deletes contact rows
+
+### Phase M-11 / Twilio voicemail — additional reference
+
+- The Twilio AMD pipeline is schema-only until Account SID + Auth Token go into `twilio_settings`. After creds are entered, the outbound call worker still needs to be built (cron job that polls `voicemail_drops` queue).
+
+### Frontend pages now live on marketing.cadsuite.com
+
+| Path | Page | Phase |
+|---|---|---|
+| `/` | Dashboard | Phase 2 |
+| `/contacts` | Contacts (4,499 rows, bulk Mark-as-Spam) | Phase 3 |
+| `/pipeline` | Opportunities | Phase 4 — not built |
+| `/calendar` | Calendar (event types + bookings) | Phase 7 |
+| `/email` | Email Campaigns (block editor + send) | Phase 5 |
+| `/sequences` | 17 multi-touch sequences | M-3 |
+| `/templates` | 80 email templates editor | M-3 |
+| `/voicemail` | Voicemail recordings | M-11 |
+| `/automation` | Workflow builder | Phase 6 |
+| `/funnels` | Funnels page builder | Phase 8 |
+| `/products` | 13 CADsuite products | M-2 |
+| `/pricing` | 25 pricing plans | M-8 |
+| `/case-studies` | 6 case studies | M-4 |
+| `/content` | Content calendar (32 entries) | M-9 |
+| `/blog` | Blog posts | M-9 |
+| `/pixels` | Tracking pixels (6 platforms) | M-13 |
+| `/reports` | Funnel KPI dashboard | M-10 |
+| `/settings` | Settings | Phase 9 — stub |
+
+### Next Up
+- **Phase 4** — Kanban Opportunities board (only one of the original 10 phases never built)
+- **Phase 9** — Settings & White Label (currently a stub)
+- **M-13 dispatcher** — server-side Meta CAPI / TikTok Events API cron worker
+- **Phase 6 executor** — automation node-execution worker
+- **Phase M-5 enrollment cron** — sequence_enrollments processor that walks `sequence_steps` over time
+- **Phase 5 SMTP** — swap `mail()` for PHPMailer + dedicated SMTP creds (RingCentral SMTP per memory `reference_smtp_ringcentral.md`)
+- **Call Center frontend** — WebRTC softphone + supervisor live board (M-12 backend is in)
