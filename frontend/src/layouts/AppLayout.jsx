@@ -19,9 +19,9 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen text-slate-200">
+    <div className="flex min-h-screen text-slate-200">
       <Sidebar user={user} />
-      <main className="max-w-[1600px] mx-auto">
+      <main className="flex-1 min-w-0 overflow-auto">
         <Outlet context={{ user }} />
       </main>
       <RingCentralDialer />
