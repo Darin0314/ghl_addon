@@ -14,9 +14,17 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  background: #0b0d12;
   color: #e2e8f0;
   letter-spacing: -0.005em;
+}
+
+body {
+  background-color: #020617;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(124, 45, 18, 0.18) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(15, 23, 42, 0.95) 0px, transparent 60%);
+  background-attachment: fixed;
+  min-height: 100vh;
 }
 
 code, kbd, pre, samp, .font-mono {
@@ -32,8 +40,8 @@ h3 { letter-spacing: -0.012em; font-weight: 600; }
 /* Scrollbar polish */
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: #1f2533; border-radius: 5px; }
-*::-webkit-scrollbar-thumb:hover { background: #2d3548; }
+*::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.25); border-radius: 5px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.4); }
 
 /* Buttons + inputs feel tighter + crisper */
 button, input, select, textarea {
@@ -41,50 +49,64 @@ button, input, select, textarea {
   letter-spacing: inherit;
 }
 input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible {
-  outline: 2px solid rgba(99, 102, 241, 0.6);
+  outline: 2px solid rgba(251, 146, 60, 0.55);
   outline-offset: 1px;
 }
 
-/* Subtle inset highlight on cards */
-.bg-\[\#141923\] {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+/* CADsuite brand orange (matching canvasser) */
+.brand-text { color: #fb923c; }
+.brand-bg   { background-color: #f97316; }
+
+/* Translucent cards with backdrop-blur, matching canvasser feel */
+.card-glass {
+  background-color: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(30, 41, 59, 0.6);
 }
 
-#root {
-  width: 100%;
-  min-height: 100vh;
-}
+/* Color overrides — remap indigo (old) to brand orange (new) */
+.bg-indigo-600 { background-color: #ea580c !important; }
+.bg-indigo-500 { background-color: #f97316 !important; }
+.hover\:bg-indigo-500:hover { background-color: #f97316 !important; }
+.hover\:bg-indigo-700:hover { background-color: #c2410c !important; }
+.text-indigo-400 { color: #fb923c !important; }
+.text-indigo-300 { color: #fdba74 !important; }
+.text-indigo-200 { color: #fed7aa !important; }
+.bg-indigo-600\/20 { background-color: rgba(234, 88, 12, 0.2) !important; }
+.bg-indigo-600\/30 { background-color: rgba(234, 88, 12, 0.3) !important; }
+.bg-indigo-500\/10 { background-color: rgba(249, 115, 22, 0.1) !important; }
+.bg-indigo-500\/15 { background-color: rgba(249, 115, 22, 0.15) !important; }
+.border-indigo-500 { border-color: #f97316 !important; }
+.focus\:ring-indigo-500:focus { --tw-ring-color: rgba(249, 115, 22, 0.5) !important; }
+.focus\:border-blue-500:focus { border-color: #f97316 !important; }
 
-/* ───────────────────────────────────────────────────────────────────────
-   Light-mode overrides.
-   Toggle by setting data-theme="light" on <html> (ThemeToggle does this).
-   Hardcoded hex colors used throughout the app are reverse-mapped here to
-   their light-mode equivalents via Tailwind's arbitrary-class escape syntax
-   so we don't have to touch every component file.
-   ─────────────────────────────────────────────────────────────────────── */
-html[data-theme="light"] body {
-  background: #f8fafc;
-  color: #0f172a;
-}
-
-/* Surfaces */
-html[data-theme="light"] .bg-\[\#0f1117\] { background-color: #f8fafc !important; }
-html[data-theme="light"] .bg-\[\#0d1117\] { background-color: #ffffff !important; }
-html[data-theme="light"] .bg-\[\#141923\] { background-color: #ffffff !important; }
-html[data-theme="light"] .bg-\[\#161b27\] { background-color: #f1f5f9 !important; }
-html[data-theme="light"] .bg-\[\#1e2535\] { background-color: #e2e8f0 !important; }
+/* Surface colors — push everything slightly darker + tighter for crispness */
+.bg-\[\#0f1117\] { background-color: rgba(15, 23, 42, 0.5) !important; backdrop-filter: blur(6px); }
+.bg-\[\#0d1117\] { background-color: rgba(2, 6, 23, 0.85) !important; backdrop-filter: blur(10px); }
+.bg-\[\#141923\] { background-color: rgba(15, 23, 42, 0.4) !important; backdrop-filter: blur(8px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04); }
+.bg-\[\#161b27\] { background-color: rgba(15, 23, 42, 0.55) !important; }
+.bg-\[\#1e2535\] { background-color: rgba(30, 41, 59, 0.5) !important; }
 
 /* Borders */
-html[data-theme="light"] .border-\[\#1e2535\] { border-color: #e2e8f0 !important; }
+.border-\[\#1e2535\] { border-color: rgba(30, 41, 59, 0.6) !important; }
+.border-\[\#2a3347\] { border-color: rgba(51, 65, 85, 0.6) !important; }
+.divide-\[\#1e2535\] > * + * { border-color: rgba(30, 41, 59, 0.4) !important; }
+
+html[data-theme="light"] body {
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(254, 215, 170, 0.4) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(241, 245, 249, 0.95) 0px, transparent 60%);
+  color: #0f172a;
+}
+html[data-theme="light"] .bg-\[\#0f1117\] { background-color: rgba(255, 255, 255, 0.8) !important; }
+html[data-theme="light"] .bg-\[\#0d1117\] { background-color: rgba(255, 255, 255, 0.95) !important; }
+html[data-theme="light"] .bg-\[\#141923\] { background-color: rgba(255, 255, 255, 0.85) !important; }
+html[data-theme="light"] .bg-\[\#161b27\] { background-color: #f1f5f9 !important; }
+html[data-theme="light"] .bg-\[\#1e2535\] { background-color: #e2e8f0 !important; }
+html[data-theme="light"] .border-\[\#1e2535\] { border-color: rgba(226, 232, 240, 0.8) !important; }
 html[data-theme="light"] .border-\[\#2a3347\] { border-color: #cbd5e1 !important; }
 html[data-theme="light"] .divide-\[\#1e2535\] > * + * { border-color: #e2e8f0 !important; }
-
-/* Hover surfaces */
-html[data-theme="light"] .hover\:bg-\[\#1e2535\]:hover { background-color: #e2e8f0 !important; }
-html[data-theme="light"] .hover\:bg-\[\#0f1117\]:hover { background-color: #f1f5f9 !important; }
-html[data-theme="light"] .hover\:bg-\[\#141923\]:hover { background-color: #ffffff !important; }
-
-/* Text colors — invert the dark-on-dark scale to dark-on-light */
 html[data-theme="light"] .text-white     { color: #0f172a !important; }
 html[data-theme="light"] .text-slate-100 { color: #1e293b !important; }
 html[data-theme="light"] .text-slate-200 { color: #1e293b !important; }
@@ -92,19 +114,3 @@ html[data-theme="light"] .text-slate-300 { color: #334155 !important; }
 html[data-theme="light"] .text-slate-400 { color: #475569 !important; }
 html[data-theme="light"] .text-slate-500 { color: #64748b !important; }
 html[data-theme="light"] .text-slate-600 { color: #94a3b8 !important; }
-html[data-theme="light"] .placeholder-slate-500::placeholder { color: #94a3b8 !important; }
-
-/* Tinted pills keep hue but soften — readable on white */
-html[data-theme="light"] .bg-slate-800\/40 { background-color: rgb(241 245 249 / 0.7) !important; }
-html[data-theme="light"] .bg-slate-700\/40 { background-color: rgb(241 245 249 / 0.7) !important; }
-html[data-theme="light"] .bg-slate-700     { background-color: #e2e8f0 !important; color: #0f172a !important; }
-html[data-theme="light"] .hover\:bg-slate-600:hover { background-color: #cbd5e1 !important; }
-html[data-theme="light"] .bg-indigo-500\/15  { background-color: rgb(99 102 241 / 0.10) !important; }
-html[data-theme="light"] .bg-emerald-500\/15 { background-color: rgb(16 185 129 / 0.10) !important; }
-html[data-theme="light"] .bg-amber-500\/15   { background-color: rgb(245 158 11 / 0.12) !important; }
-html[data-theme="light"] .bg-rose-500\/15    { background-color: rgb(244 63 94 / 0.10) !important; }
-html[data-theme="light"] .text-indigo-200    { color: #4338ca !important; }
-html[data-theme="light"] .text-indigo-300    { color: #4338ca !important; }
-html[data-theme="light"] .text-emerald-300   { color: #047857 !important; }
-html[data-theme="light"] .text-amber-300     { color: #b45309 !important; }
-html[data-theme="light"] .text-rose-300      { color: #b91c1c !important; }
