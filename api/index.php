@@ -118,6 +118,188 @@ if ($resource === 'pixel-snippets' && $method === 'GET') {
     exit;
 }
 
+// ─── Email open pixel — 1x1 GIF, public ────────────────────────────────
+if ($resource === 'track-open' && $method === 'GET') {
+    $token = $_GET['t'] ?? '';
+    if ($token) {
+        $db = Database::getConnection();
+        $db->prepare('UPDATE campaign_recipients SET status = IF(status = "sent","opened",status), opened_at = COALESCE(opened_at, NOW()) WHERE tracking_token = ?')->execute([$token]);
+        $db->prepare('UPDATE campaigns c JOIN campaign_recipients r ON r.campaign_id = c.id SET c.open_count = c.open_count + 1 WHERE r.tracking_token = ? AND r.opened_at IS NULL OR r.opened_at = NOW()')->execute([$token]);
+    }
+    header('Content-Type: image/gif');
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    echo base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+    exit;
+}
+
+// ─── Email link click tracker — 302s to the real URL ───────────────────
+if ($resource === 'track-click' && $method === 'GET') {
+    $token = $_GET['t'] ?? '';
+    $url   = $_GET['u'] ?? '';
+    if ($token && $url) {
+        $db = Database::getConnection();
+        $stmt = $db->prepare('SELECT id, campaign_id, account_id FROM campaign_recipients WHERE tracking_token = ?');
+        $stmt->execute([$token]);
+        if ($r = $stmt->fetch()) {
+            $db->prepare('INSERT INTO campaign_link_clicks (recipient_id, campaign_id, account_id, url, ip, user_agent) VALUES (?, ?, ?, ?, ?, ?)')->execute([
+                $r['id'], $r['campaign_id'], $r['account_id'], $url, $_SERVER['REMOTE_ADDR'] ?? null, substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500),
+            ]);
+            $db->prepare('UPDATE campaign_recipients SET status = IF(status IN ("sent","opened"),"clicked",status), clicked_at = COALESCE(clicked_at, NOW()) WHERE id = ?')->execute([$r['id']]);
+            $db->prepare('UPDATE campaigns SET click_count = click_count + 1 WHERE id = ?')->execute([$r['campaign_id']]);
+        }
+    }
+    header('Location: ' . $url, true, 302);
+    exit;
+}
+
+// ─── Unsubscribe — public page ────────────────────────────────────────
+if ($resource === 'unsubscribe' && $method === 'GET') {
+    $token = $_GET['t'] ?? '';
+    header('Content-Type: text/html; charset=UTF-8');
+    if (!$token) { echo '<p>Missing token.</p>'; exit; }
+    $db = Database::getConnection();
+    $stmt = $db->prepare('SELECT email, account_id FROM campaign_recipients WHERE tracking_token = ?');
+    $stmt->execute([$token]);
+    $r = $stmt->fetch();
+    if (!$r) { echo '<p>Invalid token.</p>'; exit; }
+    $db->prepare('INSERT IGNORE INTO unsubscribes (account_id, email) VALUES (?, ?)')->execute([$r['account_id'], strtolower($r['email'])]);
+    $db->prepare('UPDATE campaign_recipients SET status = "unsubscribed", unsubscribed_at = NOW() WHERE tracking_token = ?')->execute([$token]);
+    echo '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;text-align:center;padding:80px;color:#222;"><h2>Unsubscribed</h2><p>You won&rsquo;t receive any more marketing emails from CADsuite at <strong>' . htmlspecialchars($r['email']) . '</strong>.</p><p>Changed your mind? <a href="https://marketing.cadsuite.com/resubscribe">Resubscribe</a>.</p></body></html>';
+    exit;
+}
+
+// ─── Public CSV exports — contacts download for CADsuite ──────────────
+if ($resource === 'contacts-csv' && $method === 'GET') {
+    $accountId = (int)($_GET['account_id'] ?? 4);
+    $db = Database::getConnection();
+    $stmt = $db->prepare('SELECT id, name, email, phone, source, notes, created_at FROM contacts WHERE account_id = ? ORDER BY id');
+    $stmt->execute([$accountId]);
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="cadsuite_contacts.csv"');
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['id','name','email','phone','source','notes','created_at']);
+    foreach ($stmt as $row) fputcsv($out, $row);
+    exit;
+}
+
+// ─── Public Calendly-style booking endpoints ──────────────────────────
+if ($resource === 'book' && $id && $method === 'GET') {
+    // GET /api/book/{event_type_slug}/availability?date=YYYY-MM-DD
+    $db = Database::getConnection();
+    $stmt = $db->prepare('SELECT * FROM event_types WHERE slug = ? AND is_active = 1 LIMIT 1');
+    $stmt->execute([$id]);
+    $et = $stmt->fetch();
+    if (!$et) { http_response_code(404); echo json_encode(['error' => 'Event type not found']); exit; }
+
+    if (($_GET['action'] ?? '') === 'availability') {
+        $date = $_GET['date'] ?? date('Y-m-d');
+        $dt = DateTime::createFromFormat('Y-m-d', $date);
+        if (!$dt) { http_response_code(422); echo json_encode(['error' => 'invalid date']); exit; }
+        $dow = (int)$dt->format('N'); // 1=Mon … 7=Sun
+        $stmt = $db->prepare('SELECT start_time, end_time, timezone FROM availability_blocks WHERE account_id = ? AND day_of_week = ? AND is_active = 1');
+        $stmt->execute([$et['account_id'], $dow]);
+        $blocks = $stmt->fetchAll();
+
+        // Existing bookings for that day
+        $stmt = $db->prepare('SELECT starts_at, ends_at FROM appointments WHERE account_id = ? AND DATE(starts_at) = ? AND status IN ("booked","rescheduled")');
+        $stmt->execute([$et['account_id'], $date]);
+        $taken = array_map(function ($r) {
+            return [strtotime($r['starts_at']), strtotime($r['ends_at'])];
+        }, $stmt->fetchAll());
+
+        $duration = (int)$et['duration_minutes'];
+        $slots = [];
+        foreach ($blocks as $b) {
+            $start = strtotime("$date {$b['start_time']}");
+            $end   = strtotime("$date {$b['end_time']}");
+            for ($t = $start; $t + $duration*60 <= $end; $t += $duration*60) {
+                $clash = false;
+                foreach ($taken as [$bs, $be]) {
+                    if ($t < $be && $t + $duration*60 > $bs) { $clash = true; break; }
+                }
+                if (!$clash && $t > time() + (int)$et['min_notice_hours'] * 3600) {
+                    $slots[] = date('c', $t);
+                }
+            }
+        }
+        echo json_encode(['data' => ['event_type' => $et, 'date' => $date, 'slots' => $slots]]);
+        exit;
+    }
+
+    $et['questions'] = $et['questions_json'] ? json_decode($et['questions_json'], true) : [];
+    echo json_encode(['data' => $et]);
+    exit;
+}
+
+if ($resource === 'book' && $id && $method === 'POST') {
+    $b = json_decode(file_get_contents('php://input'), true) ?? [];
+    $db = Database::getConnection();
+    $stmt = $db->prepare('SELECT * FROM event_types WHERE slug = ? AND is_active = 1 LIMIT 1');
+    $stmt->execute([$id]);
+    $et = $stmt->fetch();
+    if (!$et) { http_response_code(404); echo json_encode(['error' => 'Event type not found']); exit; }
+    if (empty($b['starts_at']) || empty($b['invitee_email'])) {
+        http_response_code(422); echo json_encode(['error' => 'starts_at + invitee_email required']); exit;
+    }
+    $startTs = strtotime($b['starts_at']);
+    $endTs = $startTs + (int)$et['duration_minutes'] * 60;
+    $token = bin2hex(random_bytes(16));
+
+    $stmt = $db->prepare(
+        'INSERT INTO appointments (account_id, event_type_id, invitee_name, invitee_email, invitee_phone, starts_at, ends_at, timezone, location_type, answers_json, cancel_token, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "booked")'
+    );
+    $stmt->execute([
+        $et['account_id'], $et['id'],
+        $b['invitee_name'] ?? null, $b['invitee_email'], $b['invitee_phone'] ?? null,
+        date('Y-m-d H:i:s', $startTs), date('Y-m-d H:i:s', $endTs),
+        $b['timezone'] ?? 'America/Denver',
+        $et['location_type'],
+        isset($b['answers']) ? json_encode($b['answers']) : null,
+        $token,
+    ]);
+    $apptId = $db->lastInsertId();
+
+    // Auto-create or update contact
+    $db->prepare('INSERT INTO contacts (account_id, name, email, phone, source, tags, persona_id, created_at)
+                  VALUES (?, ?, ?, ?, "calendar_booking", JSON_ARRAY("demo-booked"), NULL, NOW())
+                  ON DUPLICATE KEY UPDATE name = COALESCE(name, VALUES(name)), phone = COALESCE(phone, VALUES(phone))')
+       ->execute([$et['account_id'], $b['invitee_name'] ?? null, $b['invitee_email'], $b['invitee_phone'] ?? null]);
+
+    echo json_encode(['data' => ['id' => (int)$apptId, 'cancel_token' => $token, 'starts_at' => date('c', $startTs)]]);
+    exit;
+}
+
+// ─── Public form-submission endpoint for funnel pages ──────────────────
+if ($resource === 'submit' && $method === 'POST') {
+    $b = json_decode(file_get_contents('php://input'), true) ?? [];
+    $accountId = (int)($b['account_id'] ?? 4);
+    $pageId = (int)($b['page_id'] ?? 0);
+    $email = trim($b['email'] ?? '');
+    $name  = trim($b['name'] ?? '');
+    $phone = trim($b['phone'] ?? '');
+    if (!$email && !$name && !$phone) { http_response_code(422); echo json_encode(['error' => 'one of email/name/phone required']); exit; }
+
+    $db = Database::getConnection();
+    $db->prepare('INSERT INTO form_submissions (account_id, funnel_page_id, email, name, phone, data_json, ip, user_agent)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+       ->execute([
+        $accountId, $pageId ?: null, $email, $name, $phone,
+        json_encode($b['data'] ?? []),
+        $_SERVER['REMOTE_ADDR'] ?? null,
+        substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500),
+       ]);
+    if ($email) {
+        $db->prepare('INSERT INTO contacts (account_id, name, email, phone, source, tags, created_at)
+                      VALUES (?, ?, ?, ?, "funnel_form", JSON_ARRAY("lead"), NOW())
+                      ON DUPLICATE KEY UPDATE name = COALESCE(name, VALUES(name)), phone = COALESCE(phone, VALUES(phone))')
+           ->execute([$accountId, $name ?: $email, $email, $phone ?: null]);
+    }
+    if ($pageId) $db->prepare('UPDATE funnel_pages SET conversions = conversions + 1 WHERE id = ?')->execute([$pageId]);
+    echo json_encode(['data' => ['ok' => true]]);
+    exit;
+}
+
 // ─── Public event tracker — landing pages POST conversion events here ───
 if ($resource === 'track' && $method === 'POST') {
     $b = json_decode(file_get_contents('php://input'), true) ?? [];

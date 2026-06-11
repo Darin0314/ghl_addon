@@ -1,16 +1,53 @@
 @import "tailwindcss";
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-body {
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+html, body {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
-  background: #0f1117;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  background: #0b0d12;
   color: #e2e8f0;
+  letter-spacing: -0.005em;
+}
+
+code, kbd, pre, samp, .font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-feature-settings: 'liga' 0;
+}
+
+/* Tighter, more modern heading scale */
+h1 { letter-spacing: -0.025em; font-weight: 700; }
+h2 { letter-spacing: -0.018em; font-weight: 600; }
+h3 { letter-spacing: -0.012em; font-weight: 600; }
+
+/* Scrollbar polish */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: #1f2533; border-radius: 5px; }
+*::-webkit-scrollbar-thumb:hover { background: #2d3548; }
+
+/* Buttons + inputs feel tighter + crisper */
+button, input, select, textarea {
+  font-family: inherit;
+  letter-spacing: inherit;
+}
+input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.6);
+  outline-offset: 1px;
+}
+
+/* Subtle inset highlight on cards */
+.bg-\[\#141923\] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 #root {
