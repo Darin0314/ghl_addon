@@ -63,6 +63,96 @@ if ($resource === 'health' && $method === 'GET') {
     exit;
 }
 
+// ─── Public pixel snippet endpoint — landing pages embed this as <script src=…> ──
+if ($resource === 'pixel-snippets' && $method === 'GET') {
+    $accountId = (int)($_GET['account_id'] ?? 4);
+    $db = Database::getConnection();
+    $stmt = $db->prepare('SELECT platform, pixel_id, dataset_id, config FROM ad_pixels WHERE account_id = ? AND is_active = 1 AND pixel_id IS NOT NULL');
+    $stmt->execute([$accountId]);
+    $pixels = $stmt->fetchAll();
+
+    header('Content-Type: application/javascript');
+    header('Cache-Control: public, max-age=300');
+    echo "// CADsuite Marketing — auto-generated pixel bundle\n";
+    echo "(function(){\n";
+    echo "window.cadsuiteAccountId = $accountId;\n";
+    echo "window.cadsuiteTrack = function(event, value, currency){ try { fetch('/api/track', {method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({event,value,currency,account_id:$accountId,url:location.href,referrer:document.referrer})}); } catch(e){} };\n";
+
+    foreach ($pixels as $p) {
+        $pid  = json_encode($p['pixel_id']);
+        $dset = json_encode($p['dataset_id']);
+        switch ($p['platform']) {
+            case 'meta':
+                echo "// Meta (Facebook + Instagram)\n";
+                echo "!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');\n";
+                echo "fbq('init', $pid);\nfbq('track', 'PageView');\n";
+                break;
+            case 'google':
+                echo "// Google Ads + GA4 + YouTube Ads (one tag covers all 3)\n";
+                echo "(function(){var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id='+$pid;document.head.appendChild(s);})();\n";
+                echo "window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}window.gtag=gtag;gtag('js',new Date());gtag('config', $pid);\n";
+                break;
+            case 'linkedin':
+                echo "// LinkedIn Insight Tag\n";
+                echo "_linkedin_partner_id = $pid;\nwindow._linkedin_data_partner_ids=window._linkedin_data_partner_ids||[];window._linkedin_data_partner_ids.push(_linkedin_partner_id);\n";
+                echo "(function(l){if(!l){window.lintrk=function(a,b){window.lintrk.q.push([a,b])};window.lintrk.q=[]}var s=document.getElementsByTagName('script')[0];var b=document.createElement('script');b.type='text/javascript';b.async=true;b.src='https://snap.licdn.com/li.lms-analytics/insight.min.js';s.parentNode.insertBefore(b,s);})(window.lintrk);\n";
+                break;
+            case 'tiktok':
+                echo "// TikTok Pixel\n";
+                echo "!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=['page','track','identify','instances','debug','on','off','once','ready','alias','group','enableCookie','disableCookie'],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};ttq.load=function(e,n){var i='https://analytics.tiktok.com/i18n/pixel/events.js';ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=i,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};var o=document.createElement('script');o.type='text/javascript',o.async=!0,o.src=i+'?sdkid='+e+'&lib='+t;var a=document.getElementsByTagName('script')[0];a.parentNode.insertBefore(o,a)};ttq.load($pid);ttq.page();}(window,document,'ttq');\n";
+                break;
+            case 'x':
+                echo "// X (Twitter) Pixel\n";
+                echo "!function(e,t,n,s,u,a){e.twq||(s=e.twq=function(){s.exe?s.exe.apply(s,arguments):s.queue.push(arguments);},s.version='1.1',s.queue=[],u=t.createElement(n),u.async=!0,u.src='https://static.ads-twitter.com/uwt.js',a=t.getElementsByTagName(n)[0],a.parentNode.insertBefore(u,a))}(window,document,'script');\n";
+                echo "twq('config',$pid);\n";
+                break;
+            case 'reddit':
+                echo "// Reddit Pixel\n";
+                echo "!function(w,d){if(!w.rdt){var p=w.rdt=function(){p.sendEvent?p.sendEvent.apply(p,arguments):p.callQueue.push(arguments)};p.callQueue=[];var t=d.createElement('script');t.src='https://www.redditstatic.com/ads/pixel.js',t.async=!0;var s=d.getElementsByTagName('script')[0];s.parentNode.insertBefore(t,s)}}(window,document);\n";
+                echo "rdt('init', $pid);\nrdt('track', 'PageVisit');\n";
+                break;
+        }
+    }
+    echo "if (window.cadsuiteTrack) window.cadsuiteTrack('page_view');\n";
+    echo "})();\n";
+    exit;
+}
+
+// ─── Public event tracker — landing pages POST conversion events here ───
+if ($resource === 'track' && $method === 'POST') {
+    $b = json_decode(file_get_contents('php://input'), true) ?? [];
+    $accountId = (int)($b['account_id'] ?? 4);
+    $event = trim($b['event'] ?? '');
+    if (!$event) { http_response_code(422); echo json_encode(['error' => 'event required']); exit; }
+    $db = Database::getConnection();
+
+    // Log the funnel event
+    $stmt = $db->prepare('INSERT INTO funnel_events (account_id, event_type, event_value, source, utm_source, utm_medium, utm_campaign, referrer, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    $stmt->execute([
+        $accountId, $event,
+        $b['value'] ?? null,
+        $b['source'] ?? null,
+        $b['utm_source'] ?? null, $b['utm_medium'] ?? null, $b['utm_campaign'] ?? null,
+        $b['referrer'] ?? null,
+        json_encode($b),
+    ]);
+
+    // Server-side Conversion API fire (best-effort, async, never blocks)
+    $stmt = $db->prepare('SELECT ap.platform, ap.pixel_id, ap.dataset_id, ap.conversion_api_token, m.* FROM ad_pixels ap
+                          LEFT JOIN pixel_event_mappings m ON m.account_id = ap.account_id AND m.funnel_event = ?
+                          WHERE ap.account_id = ? AND ap.is_active = 1 AND ap.conversion_api_token IS NOT NULL');
+    $stmt->execute([$event, $accountId]);
+    foreach ($stmt->fetchAll() as $pixel) {
+        $platform = $pixel['platform'];
+        $stmt2 = $db->prepare('INSERT INTO pixel_events (account_id, platform, event_name, event_value, dispatch_mode, status, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        $stmt2->execute([$accountId, $platform, $event, $b['value'] ?? null, 'server', 'queued', json_encode($b)]);
+        // Real CAPI dispatch happens in a cron worker; row marked 'queued' here.
+    }
+
+    echo json_encode(['ok' => true]);
+    exit;
+}
+
 // ─── Gmail OAuth callback is public (Google redirects here, no session) ────
 if ($resource === 'gmail' && $id === 'callback' && $method === 'GET') {
     require_once __DIR__ . '/controllers/gmail.php';

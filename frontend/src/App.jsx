@@ -17,6 +17,7 @@ import CaseStudies from './pages/CaseStudies';
 import ContentCalendar from './pages/ContentCalendar';
 import Blog from './pages/Blog';
 import Voicemail from './pages/Voicemail';
+import Pixels from './pages/Pixels';
 import Settings from './pages/Settings';
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="content"    element={<ContentCalendar />} />
           <Route path="blog"       element={<Blog />} />
           <Route path="voicemail"  element={<Voicemail />} />
+          <Route path="pixels"     element={<Pixels />} />
           <Route path="settings"   element={<Settings />} />
         </Route>
       </Routes>
