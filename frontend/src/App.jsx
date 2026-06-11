@@ -11,6 +11,12 @@ import Funnels from './pages/Funnels';
 import Sequences from './pages/Sequences';
 import Templates from './pages/Templates';
 import Pricing from './pages/Pricing';
+import FunnelProducts from './pages/FunnelProducts';
+import Reports from './pages/Reports';
+import CaseStudies from './pages/CaseStudies';
+import ContentCalendar from './pages/ContentCalendar';
+import Blog from './pages/Blog';
+import Voicemail from './pages/Voicemail';
 import Settings from './pages/Settings';
 
 export default function App() {
@@ -29,6 +35,12 @@ export default function App() {
           <Route path="sequences"  element={<Sequences />} />
           <Route path="templates"  element={<Templates />} />
           <Route path="pricing"    element={<Pricing />} />
+          <Route path="products"   element={<FunnelProducts />} />
+          <Route path="reports"    element={<Reports />} />
+          <Route path="case-studies" element={<CaseStudies />} />
+          <Route path="content"    element={<ContentCalendar />} />
+          <Route path="blog"       element={<Blog />} />
+          <Route path="voicemail"  element={<Voicemail />} />
           <Route path="settings"   element={<Settings />} />
         </Route>
       </Routes>

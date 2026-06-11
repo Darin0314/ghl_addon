@@ -99,6 +99,64 @@ const nav = [
     ),
   },
   {
+    to: '/products',
+    label: 'Products',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+        <path d="M20 7l-9 5-9-5 9-5 9 5zM2 7v10l9 5 9-5V7" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    to: '/case-studies',
+    label: 'Case Studies',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+        <path d="M14 2v6h6M8 13h8M8 17h6" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    to: '/voicemail',
+    label: 'Voicemail',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+        <circle cx="6" cy="14" r="4" /><circle cx="18" cy="14" r="4" /><path d="M6 14h12" />
+      </svg>
+    ),
+  },
+  {
+    to: '/content',
+    label: 'Content',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M8 8h8M8 12h8M8 16h5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    to: '/blog',
+    label: 'Blog',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+        <path d="M12 19l7-7 3 3-7 7-3-3z" />
+        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+      </svg>
+    ),
+  },
+  {
+    to: '/reports',
+    label: 'Reports',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+        <path d="M3 3v18h18" strokeLinecap="round" />
+        <path d="M7 14l4-4 4 4 5-5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
     to: '/settings',
     label: 'Settings',
     icon: (
