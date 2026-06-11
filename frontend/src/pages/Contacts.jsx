@@ -439,8 +439,16 @@ export default function Contacts() {
             <option value="">Assign Stage…</option>
             {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
-          <button onClick={() => bulkAction('delete')}
-            className="px-3 py-1 bg-red-600/20 border border-red-500/40 text-red-400 text-xs rounded hover:bg-red-600/30 ml-auto">
+          <button onClick={() => {
+              if (confirm(`Mark ${selected.size} as spam? They'll be removed AND suppressed from future emails.`)) bulkAction('spam');
+            }}
+            className="px-3 py-1 bg-amber-600/20 border border-amber-500/40 text-amber-300 text-xs rounded hover:bg-amber-600/30 ml-auto">
+            Mark as Spam
+          </button>
+          <button onClick={() => {
+              if (confirm(`Delete ${selected.size} contacts? This cannot be undone.`)) bulkAction('delete');
+            }}
+            className="px-3 py-1 bg-red-600/20 border border-red-500/40 text-red-400 text-xs rounded hover:bg-red-600/30">
             Delete Selected
           </button>
         </div>

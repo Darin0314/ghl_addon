@@ -602,6 +602,19 @@ if ($resource === 'contacts' && $id === 'bulk' && $method === 'POST') {
             $db->prepare("UPDATE contacts SET pipeline_stage_id = ? WHERE id IN ($placeholders)")
                ->execute(array_merge([$stageId], $ids));
             break;
+        case 'spam':
+            // Pull emails, add to suppression list, then delete contacts.
+            $stmt = $db->prepare("SELECT account_id, email FROM contacts WHERE id IN ($placeholders) AND email IS NOT NULL");
+            $stmt->execute($ids);
+            $sup = $db->prepare('INSERT IGNORE INTO unsubscribes (account_id, email, reason) VALUES (?, ?, "spam")');
+            $suppressed = 0;
+            foreach ($stmt->fetchAll() as $row) {
+                $sup->execute([(int)$row['account_id'], strtolower(trim($row['email']))]);
+                $suppressed++;
+            }
+            $db->prepare("DELETE FROM contacts WHERE id IN ($placeholders)")->execute($ids);
+            echo json_encode(['data' => ['marked_spam' => $suppressed, 'deleted' => count($ids)]]);
+            exit;
     }
     echo json_encode(['data' => ['updated' => count($ids)]]);
     exit;
