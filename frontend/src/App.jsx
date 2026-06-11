@@ -8,6 +8,9 @@ import Calendar from './pages/Calendar';
 import Email from './pages/Email';
 import Automation from './pages/Automation';
 import Funnels from './pages/Funnels';
+import Sequences from './pages/Sequences';
+import Templates from './pages/Templates';
+import Pricing from './pages/Pricing';
 import Settings from './pages/Settings';
 
 export default function App() {
@@ -23,6 +26,9 @@ export default function App() {
           <Route path="email"      element={<Email />} />
           <Route path="automation" element={<Automation />} />
           <Route path="funnels"    element={<Funnels />} />
+          <Route path="sequences"  element={<Sequences />} />
+          <Route path="templates"  element={<Templates />} />
+          <Route path="pricing"    element={<Pricing />} />
           <Route path="settings"   element={<Settings />} />
         </Route>
       </Routes>
