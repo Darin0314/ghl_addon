@@ -13,8 +13,8 @@ class DealsController {
     public function __construct(private PDO $db) {}
 
     public function index(): void {
-        $where = [];
-        $params = [];
+        $where = ['d.account_id = ?'];
+        $params = [currentAccountId()];
 
         // Role scoping — agents see only deals on contacts assigned to them.
         $me = currentUser();
@@ -56,9 +56,9 @@ class DealsController {
         $stmt = $this->db->prepare(
             "SELECT d.*, c.name AS contact_name, c.phone AS contact_phone, c.email AS contact_email
              FROM deals d LEFT JOIN contacts c ON c.id = d.contact_id
-             WHERE d.id = ?"
+             WHERE d.id = ? AND d.account_id = ?"
         );
-        $stmt->execute([(int)$id]);
+        $stmt->execute([(int)$id, currentAccountId()]);
         $row = $stmt->fetch();
         if (!$row) { http_response_code(404); echo json_encode(['error' => 'Not found']); return; }
         echo json_encode(['data' => $row]);
@@ -77,8 +77,9 @@ class DealsController {
         $pipelineId = (int)($body['pipeline_id'] ?? 0);
         $stageId    = (int)($body['stage_id'] ?? 0);
         if (!$pipelineId) {
-            $row = $this->db->query("SELECT id FROM pipelines WHERE is_default = 1 LIMIT 1")->fetch();
-            $pipelineId = (int)($row['id'] ?? 1);
+            $stmt = $this->db->prepare("SELECT id FROM pipelines WHERE is_default = 1 AND account_id = ? LIMIT 1");
+            $stmt->execute([currentAccountId()]);
+            $pipelineId = (int)($stmt->fetch()['id'] ?? 1);
         }
         if (!$stageId) {
             $stmt = $this->db->prepare("SELECT id FROM pipeline_stages WHERE pipeline_id = ? ORDER BY sort_order ASC LIMIT 1");
@@ -87,10 +88,11 @@ class DealsController {
         }
 
         $stmt = $this->db->prepare(
-            'INSERT INTO deals (contact_id, pipeline_id, stage_id, title, value, expected_close, status, notes, assigned_to)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO deals (account_id, contact_id, pipeline_id, stage_id, title, value, expected_close, status, notes, assigned_to)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
+            currentAccountId(),
             $contactId, $pipelineId, $stageId, $title,
             (float)($body['value'] ?? 0),
             $body['expected_close'] ?? null,
@@ -118,14 +120,15 @@ class DealsController {
         }
         if (!$sets) { echo json_encode(['data' => ['updated' => 0]]); return; }
         $params[] = (int)$id;
-        $stmt = $this->db->prepare('UPDATE deals SET ' . implode(', ', $sets) . ' WHERE id = ?');
+        $params[] = currentAccountId();
+        $stmt = $this->db->prepare('UPDATE deals SET ' . implode(', ', $sets) . ' WHERE id = ? AND account_id = ?');
         $stmt->execute($params);
         echo json_encode(['data' => ['updated' => $stmt->rowCount()]]);
     }
 
     public function destroy(string $id): void {
-        $stmt = $this->db->prepare('DELETE FROM deals WHERE id = ?');
-        $stmt->execute([(int)$id]);
+        $stmt = $this->db->prepare('DELETE FROM deals WHERE id = ? AND account_id = ?');
+        $stmt->execute([(int)$id, currentAccountId()]);
         echo json_encode(['data' => ['deleted' => $stmt->rowCount()]]);
     }
 }

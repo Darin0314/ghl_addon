@@ -4,8 +4,8 @@ class ContactsController {
     public function __construct(private PDO $db) {}
 
     public function index(): void {
-        $where  = [];
-        $params = [];
+        $where  = ['account_id = ?'];
+        $params = [currentAccountId()];
 
         // Role scoping — agents see only contacts assigned to them. Server-
         // side enforced so URL hand-edits can't bypass it.
@@ -57,8 +57,8 @@ class ContactsController {
     }
 
     public function show(string $id): void {
-        $stmt = $this->db->prepare('SELECT * FROM contacts WHERE id = ?');
-        $stmt->execute([(int)$id]);
+        $stmt = $this->db->prepare('SELECT * FROM contacts WHERE id = ? AND account_id = ?');
+        $stmt->execute([(int)$id, currentAccountId()]);
         $row = $stmt->fetch();
         if (!$row) { http_response_code(404); echo json_encode(['error' => 'Not found']); return; }
         $row['tags'] = $row['tags'] ? json_decode($row['tags'], true) : [];
@@ -71,10 +71,12 @@ class ContactsController {
         if (!$name) { http_response_code(422); echo json_encode(['error' => 'Name required']); return; }
 
         $stmt = $this->db->prepare(
-            'INSERT INTO contacts (name, email, phone, source, tags, pipeline_stage_id, notes, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO contacts (account_id, persona_id, name, email, phone, source, tags, pipeline_stage_id, notes, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
+            currentAccountId(),
+            $body['persona_id'] ?? null,
             $name,
             $body['email'] ?? null,
             $body['phone'] ?? null,
@@ -104,13 +106,17 @@ class ContactsController {
         }
         if (!$fields) { echo json_encode(['data' => []]); return; }
 
+        if (array_key_exists('persona_id', $body)) {
+            $fields[] = 'persona_id = ?'; $params[] = $body['persona_id'];
+        }
         $params[] = (int)$id;
-        $this->db->prepare('UPDATE contacts SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params);
+        $params[] = currentAccountId();
+        $this->db->prepare('UPDATE contacts SET ' . implode(', ', $fields) . ' WHERE id = ? AND account_id = ?')->execute($params);
         echo json_encode(['data' => ['updated' => true]]);
     }
 
     public function destroy(string $id): void {
-        $this->db->prepare('DELETE FROM contacts WHERE id = ?')->execute([(int)$id]);
+        $this->db->prepare('DELETE FROM contacts WHERE id = ? AND account_id = ?')->execute([(int)$id, currentAccountId()]);
         echo json_encode(['data' => ['deleted' => true]]);
     }
 }

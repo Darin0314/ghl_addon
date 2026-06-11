@@ -40,6 +40,11 @@ function requireAuth(): array {
     return $u;
 }
 
+function currentAccountId(): int {
+    $u = currentUser();
+    return (int)($u['account_id'] ?? 1);
+}
+
 function isAgent(?array $user = null): bool {
     $u = $user ?? currentUser();
     return ($u['role'] ?? null) === 'agent';

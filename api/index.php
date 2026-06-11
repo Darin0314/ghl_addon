@@ -23,7 +23,7 @@ if ($resource === 'login' && $method === 'POST') {
     $pass  = $body['password'] ?? '';
     if (!$email || !$pass) { http_response_code(422); echo json_encode(['error' => 'Email + password required']); exit; }
     $db = Database::getConnection();
-    $stmt = $db->prepare('SELECT id, name, email, password_hash, role, avatar_url FROM users WHERE email = ? AND is_active = 1 LIMIT 1');
+    $stmt = $db->prepare('SELECT id, name, email, password_hash, role, avatar_url, account_id FROM users WHERE email = ? AND is_active = 1 LIMIT 1');
     $stmt->execute([$email]);
     $u = $stmt->fetch();
     if (!$u || !password_verify($pass, $u['password_hash'])) {
@@ -37,6 +37,7 @@ if ($resource === 'login' && $method === 'POST') {
         'email'      => $u['email'],
         'role'       => $u['role'],
         'avatar_url' => $u['avatar_url'],
+        'account_id' => $u['account_id'] !== null ? (int)$u['account_id'] : 1,
     ];
     echo json_encode(['data' => $_SESSION['user']]);
     exit;

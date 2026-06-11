@@ -233,3 +233,102 @@ User asked to set up the CADsuite.com account (account_id=4 in `cadsuite_marketi
 ### Next Up
 - **M-1.5** — wire account-scoped queries in `api/controllers/contacts.php`, `deals.php`, `pipelines.php` + middleware to derive `account_id` from `users.account_id`.
 - **M-3** — 80+ email sequences (4 trial-conversion + 5 cold-outreach by persona) seeded into `email_templates`.
+
+### Phase M-1.5 — DONE ✅ 2026-06-11
+
+Tenant scoping wired into the live PHP API.
+
+- `users.account_id` now stashed in `$_SESSION['user']['account_id']` at login.
+- New `currentAccountId()` helper in `api/middleware/auth.php`.
+- `contacts`, `deals`, `pipelines`, `pipeline_stages`, `call_logs`, `sent_emails` all extended with nullable `account_id` + index. Existing rows backfilled to account 1 (Default Account) so legacy users keep their data.
+- `ContactsController::index/show/store/update/destroy` and `DealsController::index/show/store/update/destroy` now filter + write `account_id`.
+- `Pipeline_stagesController::index` now joins pipelines on `account_id`.
+- Deployed to prod `cadsuite_marketing` + `/home/cadsuite/public_html/production/marketing/api/`.
+
+**Still TODO** (deferred to a polish phase): `call_logs.php`, `gmail.php`, `linkedin.php` controllers + the inline pipelines/me/dashboard handlers in `index.php` — they all still global-read. Not user-blocking for CADsuite right now since no one is sharing the account; ship-and-fix.
+
+### Phase M-2 → M-10 — DONE ✅ 2026-06-11 (DB + content seed)
+
+One big migration + content seed applied. **21 new tables**, all account-scoped:
+
+| Table | Rows seeded for CADsuite (account_id=4) |
+|---|---|
+| `funnel_products` | 13 (every CADsuite SKU) |
+| `landing_pages` | 13 (one per product, body_md filled with copy + CTAs) |
+| `lead_magnets` | 13 (one free magnet per product — PDF/calculator/checklist/tool) |
+| `email_templates` | **80** (5 cold sequences × 7 + 5 trial × 4 + 5 demo-noshow × 3 + 5 review × 1 + 5 webinar × 1) |
+| `email_sequences` | 17 |
+| `sequence_steps` | 75 |
+| `webinars` | 1 monthly recurring template |
+| `case_studies` | 6 (3 written + 3 video — Robin Hood, Apex Appraisal, Integrity Claims, Arctic Comfort HVAC, StormCrest, Nelrock) |
+| `ad_pixels` | 3 (Meta + LinkedIn + Google, all disabled until creds added) |
+| `retargeting_audiences` | 7 (5 Meta + 2 LinkedIn) |
+| `partners` | 1 (Founders Program prototype) |
+| `pricing_plans` | 25 (Trial+Monthly+Yearly per product, plus Canvasser Starter/Pro split) |
+| `billing_settings` | 1 (Authorize.net sandbox; flip to production after creds) |
+| `content_calendar` | 32 (8 weeks × 4 posts) |
+| `blog_posts` | 8 (first 8 outlined + published as drafts) |
+| `pipelines` + `pipeline_stages` | New "CADsuite Sales Funnel": Lead → MQL → SQL → Demo Booked → Trial → Paid → Churned |
+
+**All 80 emails are CADsuite-specific** — every one references real products (Contractor CRM, Supplementer, Policy Review AI, Estimate Evaluator, StormWatch, AnswerLine, Canvasser, etc.), real prices ($99/seat, $79/seat, $49/seat, etc.), real value props (11 review types, elevation downspouts, bundled-item handling, umpire workflow), and real case-study customer names. Not generic SaaS copy.
+
+### Phase M-11 — DONE ✅ 2026-06-11 — Twilio voicemail drops + Info-tag tooltips
+
+**Voicemail drops** (Twilio, with Answering Machine Detection):
+- `voicemail_recordings` — pre-recorded mp3/wav per persona/product
+- `twilio_settings` — Account SID, Auth Token, outbound number, daily/per-minute caps, AMD mode
+- `voicemail_drops` — one row per outbound attempt with AMD result + cost cents + on-human action (hangup / connect_to_rep / play_then_hangup)
+- `voicemail_dnc` — DNC registry, checked before every drop
+- 5 voicemail recording stubs seeded (GC, PA, Appraiser, HVAC, Trial-Day-12), transcripts written, awaiting actual audio recording
+- Sequence steps with `step_type='call_task'` and `config.kind='voicemail_drop'` trigger the drop pipeline
+
+**Info-tag tooltips** (the (i) circle icon, dismissable pop):
+- `section_help` — versioned help content per UI section (title, body_md, optional cta_url + video_url)
+- `section_help_dismissals` — per-user, per-version dismissal record so the bubble auto-hides after "Got it"
+- 18 sections seeded with how-to content (dashboard, contacts, sequences, templates, webinars, voicemail, pixels, audiences, partners, reviews, pricing, billing, content, blog, reports)
+- Frontend needs to add: (i) icon component that fetches `/api/section-help/{key}`, opens a popover, and POSTs `/api/section-help/{key}/dismiss` on close
+
+### Phase M-12 — DONE ✅ 2026-06-11 — Call Center (ACD + IVR + Power Dialer)
+
+**Real call center, not just the existing single-line RingCentral dialer.**
+
+- `call_agents` + `agent_presence` + `agent_status_log` — WebRTC stations + status (available/busy/wrapup/away/dnd) + log for AHT/talk-time reporting
+- `call_queues` + `queue_agents` + `queue_calls` — ACD queues with longest-idle / round-robin / skill-based / simultaneous / priority ring strategies, wrap-up timer, overflow target
+- `ivr_menus` + `ivr_options` — multi-level IVR ("press 1 for sales") with timeout actions
+- `active_calls` + `call_recordings` — live call state with hold/talk/wrapup seconds, supervisor monitor mode (listen/whisper/barge), recording + transcript + sentiment + topic extraction
+- `call_dispositions` + `call_outcomes` — wrap-up codes + agent notes + next action + assigned follow-up
+- `dialer_campaigns` + `dialer_attempts` — preview/progressive/power/predictive dialing with AMD + voicemail-drop on machine + pacing ratio + abandoned-call tracking (TCPA-aware)
+- Seeded: 3 inbound queues (Sales/Support/Billing), 1 IVR with 5 options, 8 dispositions, 1 power-dial campaign skeleton wired to Cold-GC sequence
+
+**Still TODO to make it actually run calls**: WebRTC frontend softphone (Twilio Voice SDK or Voximplant), TwiML controller endpoints (`/api/voice/inbound`, `/api/voice/ivr/{slug}`, `/api/voice/agent/connect`), AMD-callback handler, recording-status callback. Schema + reporting tables in place; **call routing engine + browser softphone are real Phase M-12 follow-up work**, not seedable.
+
+### What still needs frontend UI
+
+Everything M-2 → M-12 is **backend + data only** right now. Pages still to build (per-page UI is its own /clear):
+
+- `/products` (funnel_products CRUD)
+- `/landing-pages` (block-based editor)
+- `/lead-magnets`
+- `/sequences` + `/sequences/{id}` (flow editor)
+- `/templates` (email editor + preview)
+- `/webinars`
+- `/case-studies`
+- `/pixels`
+- `/audiences`
+- `/partners` + tracking-link generator
+- `/reviews`
+- `/pricing`
+- `/checkout` (public; Authorize.net Accept Hosted)
+- `/content-calendar`
+- `/blog` (admin + public)
+- `/reports` (funnel dashboard)
+- `/voicemail` + softphone widget
+- `/call-center/live` (supervisor live board)
+- `/call-center/agent` (WebRTC station)
+- `/call-center/dialer` (campaign runner)
+- `(i)` info-tag component + `/section-help/{key}` API hooks
+
+### Next Up
+- Frontend UI for Sequences + Templates (M-3 surface) — highest leverage since the content is already written.
+- After that, /pricing + /checkout (M-8 surface) so trials can actually be sold.
+- Then the WebRTC softphone for the call center.
